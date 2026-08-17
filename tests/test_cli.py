@@ -1,0 +1,50 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+from agent_doctor.cli import main
+
+
+def test_scan_json_and_ci_exit_contract(tmp_path: Path, capsys) -> None:
+    (tmp_path / "AGENTS.md").write_text("Use Markdown.\n", encoding="utf-8")
+    assert main(["scan", str(tmp_path), "--format", "json"]) == 0
+    graph = json.loads(capsys.readouterr().out)
+    assert graph["sealed"] is True
+
+    assert main(["scan", str(tmp_path), "--format", "ci"]) == 0
+    envelope = json.loads(capsys.readouterr().out)
+    assert envelope["decision"]["outcome"] == "satisfied"
+    assert envelope["decision"]["result_ref"] == envelope["result"]["result_id"]
+
+
+def test_spec_cli_compact_summary(capsys) -> None:
+    code = main(
+        [
+            "spec",
+            "run",
+            "test-spec/fixtures/golden-v0.1.json",
+            "--id",
+            "G-001",
+            "--summary",
+        ]
+    )
+    assert code == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["counts"]["passed"] == 1
+    assert report["measurement_status"] == "not_performed"
+
+
+def test_propose_cli_is_non_executable(tmp_path: Path, capsys) -> None:
+    from agent_doctor.golden import execute
+
+    suite = json.loads(Path("test-spec/fixtures/golden-v0.1.json").read_text(encoding="utf-8"))
+    case = next(item for item in suite["cases"] if item["id"] == "G-004")
+    graph = execute(case)["graph"]
+    result_path = tmp_path / "result.json"
+    result_path.write_text(json.dumps(graph), encoding="utf-8")
+    case_ref = graph["interaction_cases"][0]["case_id"]
+    assert main(["propose", str(result_path), "--case", case_ref]) == 0
+    proposal = json.loads(capsys.readouterr().out)
+    assert proposal["authority"] == "none"
+    assert proposal["executable_operations"] == []

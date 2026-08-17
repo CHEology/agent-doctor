@@ -1,0 +1,239 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-doctor.invalid/test-spec/scenario-suite/0.1",
+  "title": "Agent Doctor Stage 04 scenario suite",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "suite_id", "suite_version", "suite_kind", "cases"],
+  "properties": {
+    "schema_version": {"const": "agent-doctor-test-scenario/0.1"},
+    "suite_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]+$"},
+    "suite_version": {"type": "string", "minLength": 1},
+    "suite_kind": {"enum": ["golden", "development", "qualification", "mixed"]},
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/case"}
+    }
+  },
+  "$defs": {
+    "stringArray": {
+      "type": "array",
+      "items": {"type": "string"},
+      "uniqueItems": true
+    },
+    "file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "source_type", "content", "metadata", "policy"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "source_type": {"enum": ["skill_manifest", "skill_body", "instruction", "override", "config", "resource", "script", "other"]},
+        "content": {"type": ["string", "null"]},
+        "metadata": {"type": "object"},
+        "policy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["exists", "readable", "inspection", "semantic_disclosure", "executable"],
+          "properties": {
+            "exists": {"type": "boolean"},
+            "readable": {"type": "boolean"},
+            "inspection": {"enum": ["allowed", "withheld", "metadata_only"]},
+            "semantic_disclosure": {"enum": ["allowed", "withheld", "redacted"]},
+            "executable": {"type": "boolean"}
+          }
+        }
+      }
+    },
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id", "title", "schema_version", "fixture_version", "level",
+        "case_kind", "test_type", "refs", "profile", "modes",
+        "boundaries", "preconditions", "inputs", "stimulus", "oracle",
+        "expected", "prohibited_outcomes", "cleanup", "review"
+      ],
+      "properties": {
+        "id": {"type": "string", "pattern": "^(G-[0-9]{3}|S-[A-Z]{3}-[0-9]{3})$"},
+        "title": {"type": "string", "minLength": 1},
+        "schema_version": {"const": "agent-doctor-test-scenario/0.1"},
+        "fixture_version": {"type": "string", "minLength": 1},
+        "level": {"enum": ["schema", "contract", "component", "integration", "system", "adversarial", "qualification"]},
+        "case_kind": {"enum": ["positive", "negative", "boundary", "abstention", "not_run", "error", "metamorphic", "property", "adversarial"]},
+        "test_type": {"enum": ["schema_invariant", "parser_normalizer", "discovery_inventory", "scope_precedence", "reference_resolution", "configuration_budget", "deterministic_rule", "semantic_contract", "adjudication_grouping", "renderer_ci", "repair_authorization", "repair_apply_verify", "rollback", "privacy_trust", "compatibility_reproducibility"]},
+        "refs": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["prd", "acceptance", "taxonomy", "architecture", "gates"],
+          "properties": {
+            "prd": {"$ref": "#/$defs/stringArray"},
+            "acceptance": {"$ref": "#/$defs/stringArray"},
+            "taxonomy": {"$ref": "#/$defs/stringArray"},
+            "architecture": {"$ref": "#/$defs/stringArray"},
+            "gates": {"$ref": "#/$defs/stringArray"}
+          }
+        },
+        "profile": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["platform_profile", "rule_set", "compatibility"],
+          "properties": {
+            "platform_profile": {"type": "string"},
+            "rule_set": {"type": "string"},
+            "compatibility": {"enum": ["compatible", "unknown", "stale", "incompatible", "not_applicable"]}
+          }
+        },
+        "modes": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["deterministic", "semantic", "repair"],
+          "properties": {
+            "deterministic": {"enum": ["enabled", "disabled", "unavailable", "not_applicable"]},
+            "semantic": {"enum": ["enabled", "disabled", "unavailable", "not_applicable"]},
+            "repair": {"enum": ["read_only", "proposal_only", "authorized_apply", "rollback", "not_applicable"]}
+          }
+        },
+        "boundaries": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["workspace", "selected_regions", "discovery", "inspection", "semantic_disclosure", "modification", "consent"],
+          "properties": {
+            "workspace": {"type": "string"},
+            "selected_regions": {"$ref": "#/$defs/stringArray"},
+            "discovery": {"$ref": "#/$defs/stringArray"},
+            "inspection": {"$ref": "#/$defs/stringArray"},
+            "semantic_disclosure": {"$ref": "#/$defs/stringArray"},
+            "modification": {"$ref": "#/$defs/stringArray"},
+            "consent": {"type": "string"}
+          }
+        },
+        "preconditions": {"$ref": "#/$defs/stringArray"},
+        "inputs": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["files", "generators", "configuration", "provider", "clock", "faults"],
+          "properties": {
+            "files": {"type": "array", "items": {"$ref": "#/$defs/file"}},
+            "generators": {"type": "array", "items": {"type": "object"}},
+            "configuration": {"type": "object"},
+            "provider": {"type": "object"},
+            "clock": {"type": "object"},
+            "faults": {"type": "array", "items": {"type": "object"}}
+          }
+        },
+        "stimulus": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["contract", "steps"],
+          "properties": {
+            "contract": {"type": "string", "minLength": 1},
+            "steps": {"type": "array", "minItems": 1, "items": {"type": "string"}}
+          }
+        },
+        "oracle": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["question", "decisive_evidence", "rationale", "acceptable_uncertainty", "counterexample"],
+          "properties": {
+            "question": {"type": "string", "minLength": 1},
+            "decisive_evidence": {"$ref": "#/$defs/stringArray"},
+            "rationale": {"type": "string", "minLength": 1},
+            "acceptable_uncertainty": {"$ref": "#/$defs/stringArray"},
+            "counterexample": {"type": "string", "minLength": 1}
+          }
+        },
+        "expected": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["diagnostic", "evidence_kinds", "inventory", "coverage", "outputs", "operation"],
+          "properties": {
+            "diagnostic": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["check_id", "check_state", "substantive_labels", "validation_qualifiers", "severity", "potential_severity", "confidence", "severity_confidence_rule"],
+              "properties": {
+                "check_id": {"type": "string"},
+                "check_state": {"enum": ["pass", "finding", "candidate", "insufficient_evidence", "not_run", "error", "not_applicable"]},
+                "substantive_labels": {"$ref": "#/$defs/stringArray"},
+                "validation_qualifiers": {"$ref": "#/$defs/stringArray"},
+                "severity": {"type": ["string", "null"], "enum": ["critical", "high", "medium", "low", "info", null]},
+                "potential_severity": {"type": ["string", "null"], "enum": ["critical", "high", "medium", "low", "info", null]},
+                "confidence": {"type": ["string", "null"], "enum": ["high", "medium", "low", null]},
+                "severity_confidence_rule": {"type": "string", "minLength": 1}
+              }
+            },
+            "evidence_kinds": {
+              "type": "array",
+              "items": {"enum": ["observed", "derived", "inferred", "runtime"]},
+              "uniqueItems": true
+            },
+            "inventory": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["expected_status_counts", "must_include", "must_exclude", "complete"],
+              "properties": {
+                "expected_status_counts": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}},
+                "must_include": {"$ref": "#/$defs/stringArray"},
+                "must_exclude": {"$ref": "#/$defs/stringArray"},
+                "complete": {"type": "boolean"}
+              }
+            },
+            "coverage": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["required_families", "gaps", "run_outcome"],
+              "properties": {
+                "required_families": {"$ref": "#/$defs/stringArray"},
+                "gaps": {"$ref": "#/$defs/stringArray"},
+                "run_outcome": {"enum": ["complete", "complete_with_gaps", "execution_failed", "not_applicable"]}
+              }
+            },
+            "outputs": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["terminal", "markdown", "json", "ci"],
+              "properties": {
+                "terminal": {"$ref": "#/$defs/stringArray"},
+                "markdown": {"$ref": "#/$defs/stringArray"},
+                "json": {"$ref": "#/$defs/stringArray"},
+                "ci": {"type": "string"}
+              }
+            },
+            "operation": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["proposal_state", "apply_state", "rollback_state", "files_modified"],
+              "properties": {
+                "proposal_state": {"type": "string"},
+                "apply_state": {"type": "string"},
+                "rollback_state": {"type": "string"},
+                "files_modified": {"type": "integer", "minimum": 0}
+              }
+            }
+          }
+        },
+        "prohibited_outcomes": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+        "cleanup": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["isolation", "postconditions"],
+          "properties": {
+            "isolation": {"type": "string", "minLength": 1},
+            "postconditions": {"type": "array", "minItems": 1, "items": {"type": "string"}}
+          }
+        },
+        "review": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "reviewers", "reviewed_at"],
+          "properties": {
+            "status": {"enum": ["draft", "reviewed", "disputed", "retired"]},
+            "reviewers": {"$ref": "#/$defs/stringArray"},
+            "reviewed_at": {"type": ["string", "null"], "format": "date"}
+          }
+        }
+      }
+    }
+  }
+}

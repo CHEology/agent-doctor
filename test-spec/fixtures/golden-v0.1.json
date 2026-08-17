@@ -1,0 +1,4113 @@
+{
+  "schema_version": "agent-doctor-test-scenario/0.1",
+  "suite_id": "agent-doctor-golden",
+  "suite_version": "0.1",
+  "suite_kind": "golden",
+  "cases": [
+    {
+      "id": "G-001",
+      "title": "Explicit require/forbid collision",
+      "schema_version": "agent-doctor-test-scenario/0.1",
+      "fixture_version": "0.1",
+      "level": "system",
+      "case_kind": "positive",
+      "test_type": "adjudication_grouping",
+      "refs": {
+        "prd": [
+          "P0-R11",
+          "P0-R12",
+          "P0-R13",
+          "P0-R14",
+          "P1-R2",
+          "P1-R3"
+        ],
+        "acceptance": [
+          "AC-3",
+          "AC-5",
+          "AC-7"
+        ],
+        "taxonomy": [
+          "semantic_conflict",
+          "scope_overlap"
+        ],
+        "architecture": [
+          "AD-01",
+          "Adjudicate"
+        ],
+        "gates": [
+          "GATE-PC-INV",
+          "GATE-PC-FINDING"
+        ]
+      },
+      "profile": {
+        "platform_profile": "codex-fixture/0.1",
+        "rule_set": "agent-doctor-rules/0.1",
+        "compatibility": "compatible"
+      },
+      "modes": {
+        "deterministic": "enabled",
+        "semantic": "enabled",
+        "repair": "read_only"
+      },
+      "boundaries": {
+        "workspace": "/fixture/repo",
+        "selected_regions": [
+          "repo/"
+        ],
+        "discovery": [
+          "repo/**"
+        ],
+        "inspection": [
+          "repo/**"
+        ],
+        "semantic_disclosure": [
+          "listed fixture excerpts"
+        ],
+        "modification": [],
+        "consent": "manifest-specific synthetic-content consent"
+      },
+      "preconditions": [
+        "Fresh isolated virtual filesystem",
+        "No runtime trace exists"
+      ],
+      "inputs": {
+        "files": [
+          {
+            "path": "repo/AGENTS.md",
+            "source_type": "instruction",
+            "content": "\n\n\n\n\n\n\n\n\n\n\nFor dependency updates, run the test suite before responding.\n",
+            "metadata": {},
+            "policy": {
+              "exists": true,
+              "readable": true,
+              "inspection": "allowed",
+              "semantic_disclosure": "allowed",
+              "executable": false
+            }
+          },
+          {
+            "path": "repo/skills/fast-update/SKILL.md",
+            "source_type": "skill_body",
+            "content": "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nFor dependency updates, do not run tests; return the edited manifest immediately.\n",
+            "metadata": {},
+            "policy": {
+              "exists": true,
+              "readable": true,
+              "inspection": "allowed",
+              "semantic_disclosure": "allowed",
+              "executable": false
+            }
+          }
+        ],
+        "generators": [],
+        "configuration": {},
+        "provider": {
+          "kind": "scripted-neutral-provider",
+          "network": "simulated"
+        },
+        "clock": {
+          "now": "2026-08-17T00:00:00Z",
+          "controlled": true
+        },
+        "faults": []
+      },
+      "stimulus": {
+        "contract": "Adjudicate",
+        "steps": [
+          "Freeze the declared scope and profile",
+          "Inventory and preserve source status and locations",
+          "Run deterministic prerequisites before any semantic comparison",
+          "Adjudicate the stated question and seal one canonical result"
+        ]
+      },
+      "oracle": {
+        "question": "Can both effective action policies be satisfied?",
+        "decisive_evidence": [
+          "Mandatory run-tests claim at AGENTS.md:12",
+          "Mandatory do-not-run-tests claim at SKILL.md:31",
+          "Same dependency-update witness and no resolving precedence"
+        ],
+        "rationale": "The same effective request both requires and forbids the same action.",
+        "acceptable_uncertainty": [
+          "Future Skill selection is unknown and does not weaken the conditional static conflict"
+        ],
+        "counterexample": "A non-conflict reading would require different regions, non-mandatory modality, or precedence; the complete fixture excludes all three."
+      },
+      "expected": {
+        "diagnostic": {
+          "check_id": "semantic.action-policy.compatibility",
+          "check_state": "finding",
+          "substantive_labels": [
+            "scope_overlap",
+            "semantic_conflict"
+          ],
+          "validation_qualifiers": [],
+          "severity": "high",
+          "potential_severity": null,
+          "confidence": "high",
+          "severity_confidence_rule": "Severity follows likely impact; confidence follows completeness of decisive evidence and remains independent."
+        },
+        "evidence_kinds": [
+          "observed",
+          "derived",
+          "inferred"
+        ],
+        "inventory": {
+          "expected_status_counts": {
+            "discovered": 2
+          },
+          "must_include": [
+            "repo/AGENTS.md",
+            "repo/skills/fast-update/SKILL.md"
+          ],
+          "must_exclude": [],
+          "complete": true
+        },
+        "coverage": {
+          "required_families": [
+            "inventory",
+            "adjudication"
+          ],
+          "gaps": [],
+          "run_outcome": "complete"
+        },
+        "outputs": {
+          "terminal": [
+            "Same state, labels, qualifier, severity, confidence, stable IDs, and coverage as the sealed result",
+            "Secret-safe decisive locations or excerpts"
+          ],
+          "markdown": [
+            "All decisive evidence, rationale, uncertainty, prohibited runtime claims, versions, and coverage"
+          ],
+          "json": [
+            "Three axes remain separate",
+            "Full member/evidence references and reproducibility metadata"
+          ],
+          "ci": "policy evaluated only after a valid sealed result"
+        },
+        "operation": {
+          "proposal_state": "not_requested",
+          "apply_state": "not_attempted",
+          "rollback_state": "not_attempted",
+          "files_modified": 0
+        }
+      },
+      "prohibited_outcomes": [
+        "behavioral_redundancy",
+        "complementarity",
+        "pass",
+        "Claim that tests were skipped at runtime"
+      ],
+      "cleanup": {
+        "isolation": "Case-local virtual root, provider script, clock, and faults; no shared mutable state",
+        "postconditions": [
+          "Zero fixture writes outside the case root",
+          "No network or provider state survives",
+          "Filesystem and event schedule match the pre-run manifest"
+        ]
+      },
+      "review": {
+        "status": "reviewed",
+        "reviewers": [
+          "stage-02-internal-review",
+          "stage-04-materialization-review"
+        ],
+        "reviewed_at": "2026-08-17"
+      }
+    },
+    {
+      "id": "G-002",
+      "title": "Compatible output sections",
+      "schema_version": "agent-doctor-test-scenario/0.1",
+      "fixture_version": "0.1",
+      "level": "system",
+      "case_kind": "negative",
+      "test_type": "adjudication_grouping",
+      "refs": {
+        "prd": [
+          "P1-R2",
+          "P1-R3",
+          "P1-R6"
+        ],
+        "acceptance": [
+          "AC-5",
+          "AC-6",
+          "AC-7"
+        ],
+        "taxonomy": [
+          "complementarity"
+        ],
+        "architecture": [
+          "AD-01",
+          "Adjudicate"
+        ],
+        "gates": [
+          "GATE-PC-INV",
+          "GATE-PC-FINDING"
+        ]
+      },
+      "profile": {
+        "platform_profile": "codex-fixture/0.1",
+        "rule_set": "agent-doctor-rules/0.1",
+        "compatibility": "compatible"
+      },
+      "modes": {
+        "deterministic": "enabled",
+        "semantic": "enabled",
+        "repair": "read_only"
+      },
+      "boundaries": {
+        "workspace": "/fixture/repo",
+        "selected_regions": [
+          "repo/"
+        ],
+        "discovery": [
+          "repo/**"
+        ],
+        "inspection": [
+          "repo/**"
+        ],
+        "semantic_disclosure": [
+          "listed fixture excerpts"
+        ],
+        "modification": [],
+        "consent": "manifest-specific synthetic-content consent"
+      },
+      "preconditions": [
+        "Fresh isolated virtual filesystem",
+        "No runtime trace exists"
+      ],
+      "inputs": {
+        "files": [
+          {
+            "path": "repo/AGENTS.md",
+            "source_type": "instruction",
+            "content": "Start with a one-sentence outcome.\n",
+            "metadata": {},
+            "policy": {
+              "exists": true,
+              "readable": true,
+              "inspection": "allowed",
+              "semantic_disclosure": "allowed",
+              "executable": false
+            }
+          },
+          {
+            "path": "repo/skills/sources/SKILL.md",
+            "source_type": "skill_body",
+            "content": "End with a Sources section.\n",
+            "metadata": {},
+            "policy": {
+              "exists": true,
+              "readable": true,
+              "inspection": "allowed",
+              "semantic_disclosure": "allowed",
+              "executable": false
+            }
+          }
+        ],
+        "generators": [],
+        "configuration": {},
+        "provider": {
+          "kind": "scripted-neutral-provider",
+          "network": "simulated"
+        },
+        "clock": {
+          "now": "2026-08-17T00:00:00Z",
+          "controlled": true
+        },
+        "faults": []
+      },
+      "stimulus": {
+        "contract": "Adjudicate",
+        "steps": [
+          "Freeze the declared scope and profile",
+          "Inventory and preserve source status and locations",
+          "Run deterministic prerequisites before any semantic comparison",
+          "Adjudicate the stated question and seal one canonical result"
+        ]
+      },
+      "oracle": {
+        "question": "Are the output requirements incompatible?",
+        "decisive_evidence": [
+          "One constraint governs the beginning",
+          "One constraint governs the end",
+          "A single response can satisfy both"
+        ],
+        "rationale": "The constraints are jointly satisfiable and make distinct contributions.",
+        "acceptable_uncertainty": [
+          "Prose between the opening and Sources section is unconstrained"
+        ],
+        "counterexample": "A conflict would require mutually exclusive positions or formats; neither is present."
+      },
+      "expected": {
+        "diagnostic": {
+          "check_id": "semantic.output.compatibility",
+          "check_state": "pass",
+          "substantive_labels": [
+            "complementarity"
+          ],
+          "validation_qualifiers": [],
+          "severity": "info",
+          "potential_severity": null,
+          "confidence": "high",
+          "severity_confidence_rule": "Severity follows likely impact; confidence follows completeness of decisive evidence and remains independent."
+        },
+        "evidence_kinds": [
+          "observed",
+          "inferred"
+        ],
+        "inventory": {
+          "expected_status_counts": {
+            "discovered": 2
+          },
+          "must_include": [
+            "repo/AGENTS.md",
+            "repo/skills/sources/SKILL.md"
+          ],
+          "must_exclude": [],
+          "complete": true
+        },
+        "coverage": {
+          "required_families": [
+            "inventory",
+            "adjudication"
+          ],
+          "gaps": [],
+          "run_outcome": "complete"
+        },
+        "outputs": {
+          "terminal": [
+            "Same state, labels, qualifier, severity, confidence, stable IDs, and coverage as the sealed result",
+            "Secret-safe decisive locations or excerpts"
+          ],
+          "markdown": [
+            "All decisive evidence, rationale, uncertainty, prohibited runtime claims, versions, and coverage"
+          ],
+          "json": [
+            "Three axes remain separate",
+            "Full member/evidence references and reproducibility metadata"
+          ],
+          "ci": "policy evaluated only after a valid sealed result"
+        },
+        "operation": {
+          "proposal_state": "not_requested",
+          "apply_state": "not_attempted",
+          "rollback_state": "not_attempted",
+          "files_modified": 0
+        }
+      },
+      "prohibited_outcomes": [
+        "semantic_conflict based only on both claims governing output"
+      ],
+      "cleanup": {
+        "isolation": "Case-local virtual root, provider script, clock, and faults; no shared mutable state",
+        "postconditions": [
+          "Zero fixture writes outside the case root",
+          "No network or provider state survives",
+          "Filesystem and event schedule match the pre-run manifest"
+        ]
+      },
+      "review": {
+        "status": "reviewed",
+        "reviewers": [
+          "stage-02-internal-review",
+          "stage-04-materialization-review"
+        ],
+        "reviewed_at": "2026-08-17"
+      }
+    },
+    {
+      "id": "G-003",
+      "title": "Broad and specialized Skills share a trigger",
+      "schema_version": "agent-doctor-test-scenario/0.1",
+      "fixture_version": "0.1",
+      "level": "system",
+      "case_kind": "boundary",
+      "test_type": "adjudication_grouping",
+      "refs": {
+        "prd": [
+          "P1-R1",
+          "P1-R3",
+          "P1-R6"
+        ],
+        "acceptance": [
+          "AC-6",
+          "AC-7"
+        ],
+        "taxonomy": [
+          "scope_overlap",
+          "complementarity",
+          "runtime_validation_needed"
+        ],
+        "architecture": [
+          "AD-01",
+          "Adjudicate"
+        ],
+        "gates": [
+          "GATE-PC-INV",
+          "GATE-PC-FINDING"
+        ]
+      },
+      "profile": {
+        "platform_profile": "codex-fixture/0.1",
+        "rule_set": "agent-doctor-rules/0.1",
+        "compatibility": "compatible"
+      },
+      "modes": {
+        "deterministic": "enabled",
+        "semantic": "enabled",
+        "repair": "read_only"
+      },
+      "boundaries": {
+        "workspace": "/fixture/repo",
+        "selected_regions": [
+          "repo/"
+        ],
+        "discovery": [
+          "repo/**"
+        ],
+        "inspection": [
+          "repo/**"
+        ],
+        "semantic_disclosure": [
+          "listed fixture excerpts"
+        ],
+        "modification": [],
+        "consent": "manifest-specific synthetic-content consent"
+      },
+      "preconditions": [
+        "Fresh isolated virtual filesystem",
+        "No runtime trace exists"
+      ],
+      "inputs": {
+        "files": [
+          {
+            "path": "repo/skills/documents/SKILL.md",
+            "source_type": "skill_body",
+            "content": "Description: Create or edit documents.\nGuidance: General document creation and editing.\n",
+            "metadata": {},
+            "policy": {
+              "exists": true,
+              "readable": true,
+              "inspection": "allowed",
+              "semantic_disclosure": "allowed",
+              "executable": false
+            }
+          },
+          {
+            "path": "repo/skills/contract-redline/SKILL.md",
+            "source_type": "skill_body",
+            "content": "Description: Redline .docx contracts while preserving tracked changes.\nGuidance: Preserve tracked changes and contract clauses.\n",
+            "metadata": {},
+            "policy": {
+              "exists": true,
+              "readable": true,
+              "inspection": "allowed",
+              "semantic_disclosure": "allowed",
+              "executable": false
+            }
+          }
+        ],
+        "generators": [],
+        "configuration": {
+          "witness": "Redline this .docx contract."
+        },
+        "provider": {
+          "kind": "scripted-neutral-provider",
+          "network": "simulated"
+        },
+        "clock": {
+          "now": "2026-08-17T00:00:00Z",
+          "controlled": true
+        },
+        "faults": []
+      },
+      "stimulus": {
+        "contract": "Adjudicate",
+        "steps": [
+          "Freeze the declared scope and profile",
+          "Inventory and preserve source status and locations",
+          "Run deterministic prerequisites before any semantic comparison",
+          "Adjudicate the stated question and seal one canonical result"
+        ]
+      },
+      "oracle": {
+        "question": "What can static evidence say about their relationship?",
+        "decisive_evidence": [
+          "The witness satisfies both explicit triggers",
+          "Bodies provide distinct compatible guidance",
+          "No deterministic routing rule or runtime trace"
+        ],
+        "rationale": "Overlap and distinct contributions are supported; selection of the less-specialized Skill remains a testable runtime hypothesis.",
+        "acceptable_uncertainty": [
+          "A controlled run may refute routing risk without changing static overlap"
+        ],
+        "counterexample": "Calling the pair conflicting would require incompatible actions; none exists."
+      },
+      "expected": {
+        "diagnostic": {
+          "check_id": "semantic.trigger.relationship",
+          "check_state": "candidate",
+          "substantive_labels": [
+            "scope_overlap",
+            "complementarity"
+          ],
+          "validation_qualifiers": [
+            "runtime_validation_needed"
+          ],
+          "severity": null,
+          "potential_severity": "medium",
+          "confidence": "medium",
+          "severity_confidence_rule": "Severity follows likely impact; confidence follows completeness of decisive evidence and remains independent."
+        },
+        "evidence_kinds": [
+          "observed",
+          "inferred"
+        ],
+        "inventory": {
+          "expected_status_counts": {
+            "discovered": 2
+          },
+          "must_include": [
+            "repo/skills/documents/SKILL.md",
+            "repo/skills/contract-redline/SKILL.md"
+          ],
+          "must_exclude": [],
+          "complete": true
+        },
+        "coverage": {
+          "required_families": [
+            "inventory",
+            "adjudication"
+          ],
+          "gaps": [],
+          "run_outcome": "complete"
+        },
+        "outputs": {
+          "terminal": [
+            "Same state, labels, qualifier, severity, confidence, stable IDs, and coverage as the sealed result",
+            "Secret-safe decisive locations or excerpts"
+          ],
+          "markdown": [
+            "All decisive evidence, rationale, uncertainty, prohibited runtime claims, versions, and coverage"
+          ],
+          "json": [
+            "Three axes remain separate",
+            "Full member/evidence references and reproducibility metadata"
+          ],
+          "ci": "policy evaluated only after a valid sealed result"
+        },
+        "operation": {
+          "proposal_state": "not_requested",
+          "apply_state": "not_attempted",
+          "rollback_state": "not_attempted",
+          "files_modified": 0
+        }
+      },
+      "prohibited_outcomes": [
+        "active semantic_conflict",
+        "guaranteed misrouting",
+        "pass for the runtime selection proposition"
+      ],
+      "cleanup": {
+        "isolation": "Case-local virtual root, provider script, clock, and faults; no shared mutable state",
+        "postconditions": [
+          "Zero fixture writes outside the case root",
+          "No network or provider state survives",
+          "Filesystem and event schedule match the pre-run manifest"
+        ]
+      },
+      "review": {
+        "status": "reviewed",
+        "reviewers": [
+          "stage-02-internal-review",
+          "stage-04-materialization-review"
+        ],
+        "reviewed_at": "2026-08-17"
+      }
+    },
+    {
+      "id": "G-004",
+      "title": "Structurally duplicate Skill installation",
+      "schema_version": "agent-doctor-test-scenario/0.1",
+      "fixture_version": "0.1",
+      "level": "system",
+      "case_kind": "positive",
+      "test_type": "deterministic_rule",
+      "refs": {
+        "prd": [
+          "P0-R6",
+          "P0-R10",
+          "P0-R15"
+        ],
+        "acceptance": [
+          "AC-2",
+          "AC-3"
+        ],
+        "taxonomy": [
+          "scope_overlap",
+          "behavioral_redundancy"
+        ],
+        "architecture": [
+          "AD-01",
+          "Adjudicate"
+        ],
+        "gates": [
+          "GATE-PC-INV",
+          "GATE-PC-FINDING"
+        ]
+      },
+      "profile": {
+        "platform_profile": "codex-fixture/0.1",
+        "rule_set": "agent-doctor-rules/0.1",
+        "compatibility": "compatible"
+      },
+      "modes": {
+        "deterministic": "enabled",
+        "semantic": "enabled",
+        "repair": "read_only"
+      },
+      "boundaries": {
+        "workspace": "/fixture/repo",
+        "selected_regions": [
+          "repo/"
+        ],
+        "discovery": [
+          "repo/**"
+        ],
+        "inspection": [
+          "repo/**"
+        ],
+        "semantic_disclosure": [
+          "listed fixture excerpts"
+        ],
+        "modification": [],
+        "consent": "manifest-specific synthetic-content consent"
+      },
+      "preconditions": [
+        "Fresh isolated virtual filesystem",
+        "No runtime trace exists"
+      ],
+      "inputs": {
+        "files": [
+          {
+            "path": "repo/skills/pdf/SKILL.md",
+            "source_type": "skill_body",
+            "content": "id: pdf\nDescription: Work with PDF files.\n",
+            "metadata": {},
+            "policy": {
+              "exists": true,
+              "readable": true,
+              "inspection": "allowed",
+              "semantic_disclosure": "allowed",
+              "executable": false
+            }
+          },
+          {
+            "path": "repo/vendor/skills/pdf/SKILL.md",
+            "source_type": "skill_body",
+            "content": "id: pdf\nDescription: Work with PDF files.\n",
+            "metadata": {},
+            "policy": {
+              "exists": true,
+              "readable": true,
+              "inspection": "allowed",
+              "semantic_disclosure": "allowed",
+              "executable": false
+            }
+          }
+        ],
+        "generators": [],
+        "configuration": {},
+        "provider": {
+          "kind": "scripted-neutral-provider",
+          "network": "simulated"
+        },
+        "clock": {
+          "now": "2026-08-17T00:00:00Z",
+          "controlled": true
+        },
+        "faults": []
+      },
+      "stimulus": {
+        "contract": "Adjudicate",
+        "steps": [
+          "Freeze the declared scope and profile",
+          "Inventory and preserve source status and locations",
+          "Run deterministic prerequisites before any semantic comparison",
+          "Adjudicate the stated question and seal one canonical result"
+        ]
+      },
+      "oracle": {
+        "question": "Do the installations add materially distinct behavior?",
+        "decisive_evidence": [
+          "Same identifier",
+          "Same normalized manifest/content digest",
+          "Both occurrences are discovered"
+        ],
+        "rationale": "The deterministic duplicate subtype is established independent of load order.",
+        "acceptable_uncertainty": [
+          "Load order may be unknown"
+        ],
+        "counterexample": "Different paths alone do not create a distinct contribution when identifier and normalized content are identical."
+      },
+      "expected": {
+        "diagnostic": {
+          "check_id": "deterministic.skill.duplicate-installation",
+          "check_state": "finding",
+          "substantive_labels": [
+            "scope_overlap",
+            "behavioral_redundancy"
+          ],
+          "validation_qualifiers": [],
+          "severity": "medium",
+          "potential_severity": null,
+          "confidence": "high",
+          "severity_confidence_rule": "Severity follows likely impact; confidence follows completeness of decisive evidence and remains independent."
+        },
+        "evidence_kinds": [
+          "observed",
+          "derived"
+        ],
+        "inventory": {
+          "expected_status_counts": {
+            "discovered": 2
+          },
+          "must_include": [
+            "repo/skills/pdf/SKILL.md",
+            "repo/vendor/skills/pdf/SKILL.md"
+          ],
+          "must_exclude": [],
+          "complete": true
+        },
+        "coverage": {
+          "required_families": [
+            "inventory",
+            "adjudication"
+          ],
+          "gaps": [],
+          "run_outcome": "complete"
+        },
+        "outputs": {
+          "terminal": [
+            "Same state, labels, qualifier, severity, confidence, stable IDs, and coverage as the sealed result",
+            "Secret-safe decisive locations or excerpts"
+          ],
+          "markdown": [
+            "All decisive evidence, rationale, uncertainty, prohibited runtime claims, versions, and coverage"
+          ],
+          "json": [
+            "Three axes remain separate",
+            "Full member/evidence references and reproducibility metadata"
+          ],
+          "ci": "policy evaluated only after a valid sealed result"
+        },
+        "operation": {
+          "proposal_state": "not_requested",
+          "apply_state": "not_attempted",
+          "rollback_state": "not_attempted",
+          "files_modified": 0
+        }
+      },
+      "prohibited_outcomes": [
+        "Two user-visible duplicate alerts",
+        "Semantic-only proof",
+        "complementarity because paths differ"
+      ],
+      "cleanup": {
+        "isolation": "Case-local virtual root, provider script, clock, and faults; no shared mutable state",
+        "postconditions": [
+          "Zero fixture writes outside the case root",
+          "No network or provider state survives",
+          "Filesystem and event schedule match the pre-run manifest"
+        ]
+      },
+      "review": {
+        "status": "reviewed",
+        "reviewers": [
+          "stage-02-internal-review",
+          "stage-04-materialization-review"
+        ],
+        "reviewed_at": "2026-08-17"
+      }
+    },
+    {
+      "id": "G-005",
+      "title": "Similar topic with distinct responsibilities",
+      "schema_version": "agent-doctor-test-scenario/0.1",
+      "fixture_version": "0.1",
+      "level": "system",
+      "case_kind": "negative",
+      "test_type": "adjudication_grouping",
+      "refs": {
+        "prd": [
+          "P1-R1",
+          "P1-R3"
+        ],
+        "acceptance": [
+          "AC-5",
+          "AC-6",
+          "AC-7"
+        ],
+        "taxonomy": [
+          "scope_overlap",
+          "complementarity"
+        ],
+        "architecture": [
+          "AD-01",
+          "Adjudicate"
+        ],
+        "gates": [
+          "GATE-PC-INV",
+          "GATE-PC-FINDING"
+        ]
+      },
+      "profile": {
+        "platform_profile": "codex-fixture/0.1",
+        "rule_set": "agent-doctor-rules/0.1",
+        "compatibility": "compatible"
+      },
+      "modes": {
+        "deterministic": "enabled",
+        "semantic": "enabled",
+        "repair": "read_only"
+      },
+      "boundaries": {
+        "workspace": "/fixture/repo",
+        "selected_regions": [
+          "repo/"
+        ],
+        "discovery": [
+          "repo/**"
+        ],
+        "inspection": [
+          "repo/**"
+        ],
+        "semantic_disclosure": [
+          "listed fixture excerpts"
+        ],
+        "modification": [],
+        "consent": "manifest-specific synthetic-content consent"
+      },
+      "preconditions": [
+        "Fresh isolated virtual filesystem",
+        "No runtime trace exists"
+      ],
+      "inputs": {
+        "files": [
+          {
+            "path": "repo/skills/pdf-table/SKILL.md",
+            "source_type": "skill_body",
+            "content": "Extract tables from PDF files.\n",
+            "metadata": {},
+            "policy": {
+              "exists": true,
+              "readable": true,
+              "inspection": "allowed",
+              "semantic_disclosure": "allowed",
+              "executable": false
+            }
+          },
+          {
+            "path": "repo/skills/table-arithmetic/SKILL.md",
+            "source_type": "skill_body",
+            "content": "Verify arithmetic in supplied tables.\n",
+            "metadata": {},
+            "policy": {
+              "exists": true,
+              "readable": true,
+              "inspection": "allowed",
+              "semantic_disclosure": "allowed",
+              "executable": false
+            }
+          }
+        ],
+        "generators": [],
+        "configuration": {
+          "witness": "Extract this PDF table and verify its totals."
+        },
+        "provider": {
+          "kind": "scripted-neutral-provider",
+          "network": "simulated"
+        },
+        "clock": {
+          "now": "2026-08-17T00:00:00Z",
+          "controlled": true
+        },
+        "faults": []
+      },
+      "stimulus": {
+        "contract": "Adjudicate",
+        "steps": [
+          "Freeze the declared scope and profile",
+          "Inventory and preserve source status and locations",
+          "Run deterministic prerequisites before any semantic comparison",
+          "Adjudicate the stated question and seal one canonical result"
+        ]
+      },
+      "oracle": {
+        "question": "Does topic similarity establish redundancy or conflict?",
+        "decisive_evidence": [
+          "Different outputs and responsibilities",
+          "The witness can compose both contributions"
+        ],
+        "rationale": "Shared vocabulary does not erase distinct, jointly satisfiable work.",
+        "acceptable_uncertainty": [
+          "Execution order is not prescribed"
+        ],
+        "counterexample": "Redundancy would require one contribution to add nothing; extraction and arithmetic verification are different."
+      },
+      "expected": {
+        "diagnostic": {
+          "check_id": "semantic.skill.relationship",
+          "check_state": "pass",
+          "substantive_labels": [
+            "scope_overlap",
+            "complementarity"
+          ],
+          "validation_qualifiers": [],
+          "severity": "info",
+          "potential_severity": null,
+          "confidence": "high",
+          "severity_confidence_rule": "Severity follows likely impact; confidence follows completeness of decisive evidence and remains independent."
+        },
+        "evidence_kinds": [
+          "observed",
+          "inferred"
+        ],
+        "inventory": {
+          "expected_status_counts": {
+            "discovered": 2
+          },
+          "must_include": [
+            "repo/skills/pdf-table/SKILL.md",
+            "repo/skills/table-arithmetic/SKILL.md"
+          ],
+          "must_exclude": [],
+          "complete": true
+        },
+        "coverage": {
+          "required_families": [
+            "inventory",
+            "adjudication"
+          ],
+          "gaps": [],
+          "run_outcome": "complete"
+        },
+        "outputs": {
+          "terminal": [
+            "Same state, labels, qualifier, severity, confidence, stable IDs, and coverage as the sealed result",
+            "Secret-safe decisive locations or excerpts"
+          ],
+          "markdown": [
+            "All decisive evidence, rationale, uncertainty, prohibited runtime claims, versions, and coverage"
+          ],
+          "json": [
+            "Three axes remain separate",
+            "Full member/evidence references and reproducibility metadata"
+          ],
+          "ci": "policy evaluated only after a valid sealed result"
+        },
+        "operation": {
+          "proposal_state": "not_requested",
+          "apply_state": "not_attempted",
+          "rollback_state": "not_attempted",
+          "files_modified": 0
+        }
+      },
+      "prohibited_outcomes": [
+        "behavioral_redundancy from the word table",
+        "semantic_conflict from joint applicability"
+      ],
+      "cleanup": {
+        "isolation": "Case-local virtual root, provider script, clock, and faults; no shared mutable state",
+        "postconditions": [
+          "Zero fixture writes outside the case root",
+          "No network or provider state survives",
+          "Filesystem and event schedule match the pre-run manifest"
+        ]
+      },
+      "review": {
+        "status": "reviewed",
+        "reviewers": [
+          "stage-02-internal-review",
+          "stage-04-materialization-review"
+        ],
+        "reviewed_at": "2026-08-17"
+      }
+    },
+    {
+      "id": "G-006",
+      "title": "Nested override resolves a contradiction",
+      "schema_version": "agent-doctor-test-scenario/0.1",
+      "fixture_version": "0.1",
+      "level": "system",
+      "case_kind": "boundary",
+      "test_type": "scope_precedence",
+      "refs": {
+        "prd": [
+          "P0-R3",
+          "P0-R9",
+          "P1-R3"
+        ],
+        "acceptance": [
+          "AC-2",
+          "AC-7"
+        ],
+        "taxonomy": [
+          "precedence_override"
+        ],
+        "architecture": [
+          "AD-01",
+          "Adjudicate"
+        ],
+        "gates": [
+          "GATE-PC-INV",
+          "GATE-PC-FINDING"
+        ]
+      },
+      "profile": {
+        "platform_profile": "codex-fixture/0.1",
+        "rule_set": "agent-doctor-rules/0.1",
+        "compatibility": "compatible"
+      },
+      "modes": {
+        "deterministic": "enabled",
+        "semantic": "enabled",
+        "repair": "read_only"
+      },
+      "boundaries": {
+        "workspace": "/fixture/repo",
+        "selected_regions": [
+          "repo/api/x"
+        ],
+        "discovery": [
+          "repo/**"
+        ],
+        "inspection": [
+          "repo/**"
+        ],
+        "semantic_disclosure": [
+          "listed fixture excerpts"
+        ],
+        "modification": [],
+        "consent": "manifest-specific synthetic-content consent"
+      },
+      "preconditions": [
+        "Fresh isolated virtual filesystem",
+        "No runtime trace exists"
+      ],
+      "inputs": {
+        "files": [
+          {
+            "path": "repo/AGENTS.md",
+            "source_type": "instruction",
+            "content": "Use Markdown for reports.\n",
+            "metadata": {},
+            "policy": {
+              "exists": true,
+              "readable": true,
+              "inspection": "allowed",
+              "semantic_disclosure": "allowed",
+              "executable": false
+            }
+          },
+          {
+            "path": "repo/api/AGENTS.override.md",
+            "source_type": "override",
+            "content": "In this subtree, replace the root report-format rule: use JSON.\n",
+            "metadata": {},
+            "policy": {
+              "exists": true,
+              "readable": true,
+              "inspection": "allowed",
+              "semantic_disclosure": "allowed",
+              "executable": false
+            }
+          }
+        ],
+        "generators": [],
+        "configuration": {
+          "precedence_rule": "nested override replaces same-dimension root claim"
+        },
+        "provider": {
+          "kind": "scripted-neutral-provider",
+          "network": "simulated"
+        },
+        "clock": {
+          "now": "2026-08-17T00:00:00Z",
+          "controlled": true
+        },
+        "faults": []
+      },
+      "stimulus": {
+        "contract": "Adjudicate",
+        "steps": [
+          "Freeze the declared scope and profile",
+          "Inventory and preserve source status and locations",
+          "Run deterministic prerequisites before any semantic comparison",
+          "Adjudicate the stated question and seal one canonical result"
+        ]
+      },
+      "oracle": {
+        "question": "Is there an active format conflict for repo/api/x?",
+        "decisive_evidence": [
+          "Complete source chain",
+          "Compatible documented replacement rule",
+          "Selected path lies under repo/api/"
+        ],
+        "rationale": "Only JSON remains effective for the output-format dimension.",
+        "acceptable_uncertainty": [
+          "Runtime compliance with JSON is not claimed"
+        ],
+        "counterexample": "An active conflict would require both claims to remain effective; the profile proves replacement."
+      },
+      "expected": {
+        "diagnostic": {
+          "check_id": "deterministic.precedence.active-conflict",
+          "check_state": "pass",
+          "substantive_labels": [
+            "precedence_override"
+          ],
+          "validation_qualifiers": [],
+          "severity": "info",
+          "potential_severity": null,
+          "confidence": "high",
+          "severity_confidence_rule": "Severity follows likely impact; confidence follows completeness of decisive evidence and remains independent."
+        },
+        "evidence_kinds": [
+          "observed",
+          "derived"
+        ],
+        "inventory": {
+          "expected_status_counts": {
+            "discovered": 2
+          },
+          "must_include": [
+            "repo/AGENTS.md",
+            "repo/api/AGENTS.override.md"
+          ],
+          "must_exclude": [],
+          "complete": true
+        },
+        "coverage": {
+          "required_families": [
+            "inventory",
+            "adjudication"
+          ],
+          "gaps": [],
+          "run_outcome": "complete"
+        },
+        "outputs": {
+          "terminal": [
+            "Same state, labels, qualifier, severity, confidence, stable IDs, and coverage as the sealed result",
+            "Secret-safe decisive locations or excerpts"
+          ],
+          "markdown": [
+            "All decisive evidence, rationale, uncertainty, prohibited runtime claims, versions, and coverage"
+          ],
+          "json": [
+            "Three axes remain separate",
+            "Full member/evidence references and reproducibility metadata"
+          ],
+          "ci": "policy evaluated only after a valid sealed result"
+        },
+        "operation": {
+          "proposal_state": "not_requested",
+          "apply_state": "not_attempted",
+          "rollback_state": "not_attempted",
+          "files_modified": 0
+        }
+      },
+      "prohibited_outcomes": [
+        "active semantic_conflict",
+        "Root rule reported as equally effective"
+      ],
+      "cleanup": {
+        "isolation": "Case-local virtual root, provider script, clock, and faults; no shared mutable state",
+        "postconditions": [
+          "Zero fixture writes outside the case root",
+          "No network or provider state survives",
+          "Filesystem and event schedule match the pre-run manifest"
+        ]
+      },
+      "review": {
+        "status": "reviewed",
+        "reviewers": [
+          "stage-02-internal-review",
+          "stage-04-materialization-review"
+        ],
+        "reviewed_at": "2026-08-17"
+      }
+    },
+    {
+      "id": "G-007",
+      "title": "Guessed precedence between peer instructions",
+      "schema_version": "agent-doctor-test-scenario/0.1",
+      "fixture_version": "0.1",
+      "level": "system",
+      "case_kind": "abstention",
+      "test_type": "scope_precedence",
+      "refs": {
+        "prd": [
+          "P0-R3",
+          "P0-R11",
+          "P0-R12",
+          "P0-R13",
+          "P0-R14",
+          "P1-R6"
+        ],
+        "acceptance": [
+          "AC-6",
+          "AC-7"
+        ],
+        "taxonomy": [
+          "insufficient_evidence"
+        ],
+        "architecture": [
+          "AD-01",
+          "Adjudicate"
+        ],
+        "gates": [
+          "GATE-PC-INV",
+          "GATE-PC-FINDING"
+        ]
+      },
+      "profile": {
+        "platform_profile": "codex-fixture/unknown-peer-precedence",
+        "rule_set": "agent-doctor-rules/0.1",
+        "compatibility": "unknown"
+      },
+      "modes": {
+        "deterministic": "enabled",
+        "semantic": "enabled",
+        "repair": "read_only"
+      },
+      "boundaries": {
+        "workspace": "/fixture/repo",
+        "selected_regions": [
+          "repo/"
+        ],
+        "discovery": [
+          "repo/**"
+        ],
+        "inspection": [
+          "repo/**"
+        ],
+        "semantic_disclosure": [
+          "listed fixture excerpts"
+        ],
+        "modification": [],
+        "consent": "manifest-specific synthetic-content consent"
+      },
+      "preconditions": [
+        "Fresh isolated virtual filesystem",
+        "No runtime trace exists"
+      ],
+      "inputs": {
+        "files": [
+          {
+            "path": "repo/a.instructions",
+            "source_type": "instruction",
+            "content": "Output YAML.\n",
+            "metadata": {},
+            "policy": {
+              "exists": true,
+              "readable": true,
+              "inspection": "allowed",
+              "semantic_disclosure": "allowed",
+              "executable": false
+            }
+          },
+          {
+            "path": "repo/b.instructions",
+            "source_type": "instruction",
+            "content": "Output JSON.\n",
+            "metadata": {},
+            "policy": {
+              "exists": true,
+              "readable": true,
+              "inspection": "allowed",
+              "semantic_disclosure": "allowed",
+              "executable": false
+            }
+          }
+        ],
+        "generators": [],
+        "configuration": {},
+        "provider": {
+          "kind": "scripted-neutral-provider",
+          "network": "simulated"
+        },
+        "clock": {
+          "now": "2026-08-17T00:00:00Z",
+          "controlled": true
+        },
+        "faults": []
+      },
+      "stimulus": {
+        "contract": "Adjudicate",
+        "steps": [
+          "Freeze the declared scope and profile",
+          "Inventory and preserve source status and locations",
+          "Run deterministic prerequisites before any semantic comparison",
+          "Adjudicate the stated question and seal one canonical result"
+        ]
+      },
+      "oracle": {
+        "question": "Which same-scope claim governs?",
+        "decisive_evidence": [
+          "Mandatory YAML and JSON claims",
+          "Missing authority/order rule needed by the posed precedence question"
+        ],
+        "rationale": "The texts conflict if simultaneous, but the fixture cannot establish which claims are effective.",
+        "acceptable_uncertainty": [
+          "A separately framed latent-conflict candidate may be retained only with an explicit condition"
+        ],
+        "counterexample": "Inventing a winner would rely on an undocumented order."
+      },
+      "expected": {
+        "diagnostic": {
+          "check_id": "deterministic.precedence.winner",
+          "check_state": "insufficient_evidence",
+          "substantive_labels": [],
+          "validation_qualifiers": [],
+          "severity": null,
+          "potential_severity": "high",
+          "confidence": "high",
+          "severity_confidence_rule": "Severity follows likely impact; confidence follows completeness of decisive evidence and remains independent."
+        },
+        "evidence_kinds": [
+          "observed",
+          "derived"
+        ],
+        "inventory": {
+          "expected_status_counts": {
+            "discovered": 2
+          },
+          "must_include": [
+            "repo/a.instructions",
+            "repo/b.instructions"
+          ],
+          "must_exclude": [],
+          "complete": true
+        },
+        "coverage": {
+          "required_families": [
+            "inventory",
+            "adjudication"
+          ],
+          "gaps": [
+            "Compatible peer-precedence rule is absent"
+          ],
+          "run_outcome": "complete_with_gaps"
+        },
+        "outputs": {
+          "terminal": [
+            "Same state, labels, qualifier, severity, confidence, stable IDs, and coverage as the sealed result",
+            "Secret-safe decisive locations or excerpts"
+          ],
+          "markdown": [
+            "All decisive evidence, rationale, uncertainty, prohibited runtime claims, versions, and coverage"
+          ],
+          "json": [
+            "Three axes remain separate",
+            "Full member/evidence references and reproducibility metadata"
+          ],
+          "ci": "execution outcome depends on whether the affected family is declared required; never policy success by omission"
+        },
+        "operation": {
+          "proposal_state": "not_requested",
+          "apply_state": "not_attempted",
+          "rollback_state": "not_attempted",
+          "files_modified": 0
+        }
+      },
+      "prohibited_outcomes": [
+        "Invented precedence_override",
+        "Unqualified active conflict finding",
+        "pass"
+      ],
+      "cleanup": {
+        "isolation": "Case-local virtual root, provider script, clock, and faults; no shared mutable state",
+        "postconditions": [
+          "Zero fixture writes outside the case root",
+          "No network or provider state survives",
+          "Filesystem and event schedule match the pre-run manifest"
+        ]
+      },
+      "review": {
+        "status": "reviewed",
+        "reviewers": [
+          "stage-02-internal-review",
+          "stage-04-materialization-review"
+        ],
+        "reviewed_at": "2026-08-17"
+      }
+    },
+    {
+      "id": "G-008",
+      "title": "Missing required resource",
+      "schema_version": "agent-doctor-test-scenario/0.1",
+      "fixture_version": "0.1",
+      "level": "system",
+      "case_kind": "positive",
+      "test_type": "reference_resolution",
+      "refs": {
+        "prd": [
+          "P0-R4",
+          "P0-R7",
+          "P0-R10"
+        ],
+        "acceptance": [
+          "AC-1",
+          "AC-2",
+          "AC-3"
+        ],
+        "taxonomy": [
+          "invalid_reference"
+        ],
+        "architecture": [
+          "AD-01",
+          "Adjudicate"
+        ],
+        "gates": [
+          "GATE-PC-INV",
+          "GATE-PC-FINDING"
+        ]
+      },
+      "profile": {
+        "platform_profile": "codex-fixture/0.1",
+        "rule_set": "agent-doctor-rules/0.1",
+        "compatibility": "compatible"
+      },
+      "modes": {
+        "deterministic": "enabled",
+        "semantic": "enabled",
+        "repair": "read_only"
+      },
+      "boundaries": {
+        "workspace": "/fixture/repo",
+        "selected_regions": [
+          "repo/"
+        ],
+        "discovery": [
+          "repo/**"
+        ],
+        "inspection": [
+          "repo/**"
+        ],
+        "semantic_disclosure": [
+          "listed fixture excerpts"
+        ],
+        "modification": [],
+        "consent": "manifest-specific synthetic-content consent"
+      },
+      "preconditions": [
+        "Fresh isolated virtual filesystem",
+        "No runtime trace exists"
+      ],
+      "inputs": {
+        "files": [
+          {
+            "path": "repo/skills/review/SKILL.md",
+            "source_type": "skill_body",
+            "content": "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nRead `references/policy.md` before review.\n",
+            "metadata": {},
+            "policy": {
+              "exists": true,
+              "readable": true,
+              "inspection": "allowed",
+              "semantic_disclosure": "allowed",
+              "executable": false
+            }
+          },
+          {
+            "path": "repo/skills/review/references/policy.md",
+            "source_type": "resource",
+            "content": null,
+            "metadata": {},
+            "policy": {
+              "exists": false,
+              "readable": false,
+              "inspection": "metadata_only",
+              "semantic_disclosure": "withheld",
+              "executable": false
+            }
+          }
+        ],
+        "generators": [],
+        "configuration": {},
+        "provider": {
+          "kind": "scripted-neutral-provider",
+          "network": "simulated"
+        },
+        "clock": {
+          "now": "2026-08-17T00:00:00Z",
+          "controlled": true
+        },
+        "faults": []
+      },
+      "stimulus": {
+        "contract": "Adjudicate",
+        "steps": [
+          "Freeze the declared scope and profile",
+          "Inventory and preserve source status and locations",
+          "Run deterministic prerequisites before any semantic comparison",
+          "Adjudicate the stated question and seal one canonical result"
+        ]
+      },
+      "oracle": {
+        "question": "Is the mandatory supported relative reference valid?",
+        "decisive_evidence": [
+          "Declaration at SKILL.md:18",
+          "Declaring-file-relative resolver rule",
+          "Target absence"
+        ],
+        "rationale": "A mandatory supported reference resolves to a missing target.",
+        "acceptable_uncertainty": [
+          "No runtime consequence is claimed"
+        ],
+        "counterexample": "The target is not merely stale because it does not resolve."
+      },
+      "expected": {
+        "diagnostic": {
+          "check_id": "deterministic.reference.validity",
+          "check_state": "finding",
+          "substantive_labels": [
+            "invalid_reference"
+          ],
+          "validation_qualifiers": [],
+          "severity": "medium",
+          "potential_severity": null,
+          "confidence": "high",
+          "severity_confidence_rule": "Severity follows likely impact; confidence follows completeness of decisive evidence and remains independent."
+        },
+        "evidence_kinds": [
+          "observed",
+          "derived"
+        ],
+        "inventory": {
+          "expected_status_counts": {
+            "discovered": 1,
+            "missing": 1
+          },
+          "must_include": [
+            "repo/skills/review/SKILL.md",
+            "repo/skills/review/references/policy.md"
+          ],
+          "must_exclude": [],
+          "complete": true
+        },
+        "coverage": {
+          "required_families": [
+            "inventory",
+            "adjudication"
+          ],
+          "gaps": [],
+          "run_outcome": "complete"
+        },
+        "outputs": {
+          "terminal": [
+            "Same state, labels, qualifier, severity, confidence, stable IDs, and coverage as the sealed result",
+            "Secret-safe decisive locations or excerpts"
+          ],
+          "markdown": [
+            "All decisive evidence, rationale, uncertainty, prohibited runtime claims, versions, and coverage"
+          ],
+          "json": [
+            "Three axes remain separate",
+            "Full member/evidence references and reproducibility metadata"
+          ],
+          "ci": "policy evaluated only after a valid sealed result"
+        },
+        "operation": {
+          "proposal_state": "not_requested",
+          "apply_state": "not_attempted",
+          "rollback_state": "not_attempted",
+          "files_modified": 0
+        }
+      },
+      "prohibited_outcomes": [
+        "stale_reference",
+        "not_run",
+        "Resolution relative to process working directory"
+      ],
+      "cleanup": {
+        "isolation": "Case-local virtual root, provider script, clock, and faults; no shared mutable state",
+        "postconditions": [
+          "Zero fixture writes outside the case root",
+          "No network or provider state survives",
+          "Filesystem and event schedule match the pre-run manifest"
+        ]
+      },
+      "review": {
+        "status": "reviewed",
+        "reviewers": [
+          "stage-02-internal-review",
+          "stage-04-materialization-review"
+        ],
+        "reviewed_at": "2026-08-17"
+      }
+    },
+    {
+      "id": "G-009",
+      "title": "Old timestamp without freshness contract",
+      "schema_version": "agent-doctor-test-scenario/0.1",
+      "fixture_version": "0.1",
+      "level": "system",
+      "case_kind": "abstention",
+      "test_type": "reference_resolution",
+      "refs": {
+        "prd": [
+          "P0-R11",
+          "P0-R12",
+          "P0-R13",
+          "P0-R14",
+          "P1-R6"
+        ],
+        "acceptance": [
+          "AC-6"
+        ],
+        "taxonomy": [
+          "stale_reference",
+          "insufficient_evidence"
+        ],
+        "architecture": [
+          "AD-01",
+          "Adjudicate"
+        ],
+        "gates": [
+          "GATE-PC-INV",
+          "GATE-PC-FINDING"
+        ]
+      },
+      "profile": {
+        "platform_profile": "codex-fixture/0.1",
+        "rule_set": "agent-doctor-rules/0.1",
+        "compatibility": "compatible"
+      },
+      "modes": {
+        "deterministic": "enabled",
+        "semantic": "enabled",
+        "repair": "read_only"
+      },
+      "boundaries": {
+        "workspace": "/fixture/repo",
+        "selected_regions": [
+          "repo/"
+        ],
+        "discovery": [
+          "repo/**"
+        ],
+        "inspection": [
+          "repo/**"
+        ],
+        "semantic_disclosure": [
+          "listed fixture excerpts"
+        ],
+        "modification": [],
+        "consent": "manifest-specific synthetic-content consent"
+      },
+      "preconditions": [
+        "Fresh isolated virtual filesystem",
+        "No runtime trace exists"
+      ],
+      "inputs": {
+        "files": [
+          {
+            "path": "repo/skills/review/SKILL.md",
+            "source_type": "skill_body",
+            "content": "Read `references/policy-v2.md`.\n",
+            "metadata": {},
+            "policy": {
+              "exists": true,
+              "readable": true,
+              "inspection": "allowed",
+              "semantic_disclosure": "allowed",
+              "executable": false
+            }
+          },
+          {
+            "path": "repo/skills/review/references/policy-v2.md",
+            "source_type": "resource",
+            "content": "Policy schema 2.\n",
+            "metadata": {
+              "mtime": "2024-08-17T00:00:00Z"
+            },
+            "policy": {
+              "exists": true,
+              "readable": true,
+              "inspection": "allowed",
+              "semantic_disclosure": "allowed",
+              "executable": false
+            }
+          }
+        ],
+        "generators": [],
+        "configuration": {},
+        "provider": {
+          "kind": "scripted-neutral-provider",
+          "network": "simulated"
+        },
+        "clock": {
+          "now": "2026-08-17T00:00:00Z",
+          "controlled": true
+        },
+        "faults": []
+      },
+      "stimulus": {
+        "contract": "Adjudicate",
+        "steps": [
+          "Freeze the declared scope and profile",
+          "Inventory and preserve source status and locations",
+          "Run deterministic prerequisites before any semantic comparison",
+          "Adjudicate the stated question and seal one canonical result"
+        ]
+      },
+      "oracle": {
+        "question": "Is the resolving reference stale?",
+        "decisive_evidence": [
+          "Target resolves",
+          "Only an old mtime is available",
+          "No required version, rename, incompatibility, or authoritative current target"
+        ],
+        "rationale": "Age does not prove obsolescence for the declared contract.",
+        "acceptable_uncertainty": [
+          "A reviewed version registry could later decide the case"
+        ],
+        "counterexample": "A stale finding needs a compatibility or supersession fact, not a timestamp heuristic."
+      },
+      "expected": {
+        "diagnostic": {
+          "check_id": "semantic.reference.staleness",
+          "check_state": "insufficient_evidence",
+          "substantive_labels": [],
+          "validation_qualifiers": [],
+          "severity": null,
+          "potential_severity": null,
+          "confidence": "high",
+          "severity_confidence_rule": "Severity follows likely impact; confidence follows completeness of decisive evidence and remains independent."
+        },
+        "evidence_kinds": [
+          "observed"
+        ],
+        "inventory": {
+          "expected_status_counts": {
+            "discovered": 2
+          },
+          "must_include": [
+            "repo/skills/review/SKILL.md",
+            "repo/skills/review/references/policy-v2.md"
+          ],
+          "must_exclude": [],
+          "complete": true
+        },
+        "coverage": {
+          "required_families": [
+            "inventory",
+            "adjudication"
+          ],
+          "gaps": [],
+          "run_outcome": "complete"
+        },
+        "outputs": {
+          "terminal": [
+            "Same state, labels, qualifier, severity, confidence, stable IDs, and coverage as the sealed result",
+            "Secret-safe decisive locations or excerpts"
+          ],
+          "markdown": [
+            "All decisive evidence, rationale, uncertainty, prohibited runtime claims, versions, and coverage"
+          ],
+          "json": [
+            "Three axes remain separate",
+            "Full member/evidence references and reproducibility metadata"
+          ],
+          "ci": "policy evaluated only after a valid sealed result"
+        },
+        "operation": {
+          "proposal_state": "not_requested",
+          "apply_state": "not_attempted",
+          "rollback_state": "not_attempted",
+          "files_modified": 0
+        }
+      },
+      "prohibited_outcomes": [
+        "stale_reference based solely on mtime",
+        "pass asserting freshness"
+      ],
+      "cleanup": {
+        "isolation": "Case-local virtual root, provider script, clock, and faults; no shared mutable state",
+        "postconditions": [
+          "Zero fixture writes outside the case root",
+          "No network or provider state survives",
+          "Filesystem and event schedule match the pre-run manifest"
+        ]
+      },
+      "review": {
+        "status": "reviewed",
+        "reviewers": [
+          "stage-02-internal-review",
+          "stage-04-materialization-review"
+        ],
+        "reviewed_at": "2026-08-17"
+      }
+    },
+    {
+      "id": "G-010",
+      "title": "Explicit version mismatch in resolving reference",
+      "schema_version": "agent-doctor-test-scenario/0.1",
+      "fixture_version": "0.1",
+      "level": "system",
+      "case_kind": "positive",
+      "test_type": "reference_resolution",
+      "refs": {
+        "prd": [
+          "P0-R7",
+          "P0-R10",
+          "P0-R11"
+        ],
+        "acceptance": [
+          "AC-2",
+          "AC-3"
+        ],
+        "taxonomy": [
+          "stale_reference"
+        ],
+        "architecture": [
+          "AD-01",
+          "Adjudicate"
+        ],
+        "gates": [
+          "GATE-PC-INV",
+          "GATE-PC-FINDING"
+        ]
+      },
+      "profile": {
+        "platform_profile": "codex-fixture/0.1",
+        "rule_set": "agent-doctor-rules/0.1",
+        "compatibility": "compatible"
+      },
+      "modes": {
+        "deterministic": "enabled",
+        "semantic": "enabled",
+        "repair": "read_only"
+      },
+      "boundaries": {
+        "workspace": "/fixture/repo",
+        "selected_regions": [
+          "repo/"
+        ],
+        "discovery": [
+          "repo/**"
+        ],
+        "inspection": [
+          "repo/**"
+        ],
+        "semantic_disclosure": [
+          "listed fixture excerpts"
+        ],
+        "modification": [],
+        "consent": "manifest-specific synthetic-content consent"
+      },
+      "preconditions": [
+        "Fresh isolated virtual filesystem",
+        "No runtime trace exists"
+      ],
+      "inputs": {
+        "files": [
+          {
+            "path": "repo/skills/review/SKILL.md",
+            "source_type": "skill_body",
+            "content": "required_policy_schema: 3\nreference: references/policy.md\n",
+            "metadata": {},
+            "policy": {
+              "exists": true,
+              "readable": true,
+              "inspection": "allowed",
+              "semantic_disclosure": "allowed",
+              "executable": false
+            }
+          },
+          {
+            "path": "repo/skills/review/references/policy.md",
+            "source_type": "resource",
+            "content": "schema: 2\ncompatibility: not compatible with schema 3\n",
+            "metadata": {},
+            "policy": {
+              "exists": true,
+              "readable": true,
+              "inspection": "allowed",
+              "semantic_disclosure": "allowed",
+              "executable": false
+            }
+          }
+        ],
+        "generators": [],
+        "configuration": {},
+        "provider": {
+          "kind": "scripted-neutral-provider",
+          "network": "simulated"
+        },
+        "clock": {
+          "now": "2026-08-17T00:00:00Z",
+          "controlled": true
+        },
+        "faults": []
+      },
+      "stimulus": {
+        "contract": "Adjudicate",
+        "steps": [
+          "Freeze the declared scope and profile",
+          "Inventory and preserve source status and locations",
+          "Run deterministic prerequisites before any semantic comparison",
+          "Adjudicate the stated question and seal one canonical result"
+        ]
+      },
+      "oracle": {
+        "question": "Is the resolving target fit for its declared purpose?",
+        "decisive_evidence": [
+          "Consumer requires schema 3",
+          "Target declares schema 2",
+          "Target explicitly denies schema 3 compatibility"
+        ],
+        "rationale": "The target exists but is incompatible, making it stale for this consumer.",
+        "acceptable_uncertainty": [
+          "No claim is made about schema-2 consumers"
+        ],
+        "counterexample": "invalid_reference is excluded because the target resolves and is readable."
+      },
+      "expected": {
+        "diagnostic": {
+          "check_id": "deterministic.reference.compatibility",
+          "check_state": "finding",
+          "substantive_labels": [
+            "stale_reference"
+          ],
+          "validation_qualifiers": [],
+          "severity": "high",
+          "potential_severity": null,
+          "confidence": "high",
+          "severity_confidence_rule": "Severity follows likely impact; confidence follows completeness of decisive evidence and remains independent."
+        },
+        "evidence_kinds": [
+          "observed",
+          "derived"
+        ],
+        "inventory": {
+          "expected_status_counts": {
+            "discovered": 2
+          },
+          "must_include": [
+            "repo/skills/review/SKILL.md",
+            "repo/skills/review/references/policy.md"
+          ],
+          "must_exclude": [],
+          "complete": true
+        },
+        "coverage": {
+          "required_families": [
+            "inventory",
+            "adjudication"
+          ],
+          "gaps": [],
+          "run_outcome": "complete"
+        },
+        "outputs": {
+          "terminal": [
+            "Same state, labels, qualifier, severity, confidence, stable IDs, and coverage as the sealed result",
+            "Secret-safe decisive locations or excerpts"
+          ],
+          "markdown": [
+            "All decisive evidence, rationale, uncertainty, prohibited runtime claims, versions, and coverage"
+          ],
+          "json": [
+            "Three axes remain separate",
+            "Full member/evidence references and reproducibility metadata"
+          ],
+          "ci": "policy evaluated only after a valid sealed result"
+        },
+        "operation": {
+          "proposal_state": "not_requested",
+          "apply_state": "not_attempted",
+          "rollback_state": "not_attempted",
+          "files_modified": 0
+        }
+      },
+      "prohibited_outcomes": [
+        "invalid_reference",
+        "Age-based rationale",
+        "Generic configuration_risk replacing stale_reference"
+      ],
+      "cleanup": {
+        "isolation": "Case-local virtual root, provider script, clock, and faults; no shared mutable state",
+        "postconditions": [
+          "Zero fixture writes outside the case root",
+          "No network or provider state survives",
+          "Filesystem and event schedule match the pre-run manifest"
+        ]
+      },
+      "review": {
+        "status": "reviewed",
+        "reviewers": [
+          "stage-02-internal-review",
+          "stage-04-materialization-review"
+        ],
+        "reviewed_at": "2026-08-17"
+      }
+    },
+    {
+      "id": "G-011",
+      "title": "Reference escapes disclosed workspace scope",
+      "schema_version": "agent-doctor-test-scenario/0.1",
+      "fixture_version": "0.1",
+      "level": "system",
+      "case_kind": "positive",
+      "test_type": "reference_resolution",
+      "refs": {
+        "prd": [
+          "P0-R1",
+          "P0-R7",
+          "P0-R29"
+        ],
+        "acceptance": [
+          "AC-1",
+          "AC-3",
+          "AC-15"
+        ],
+        "taxonomy": [
+          "invalid_reference"
+        ],
+        "architecture": [
+          "AD-01",
+          "Adjudicate"
+        ],
+        "gates": [
+          "GATE-PC-INV",
+          "GATE-PC-FINDING"
+        ]
+      },
+      "profile": {
+        "platform_profile": "codex-fixture/0.1",
+        "rule_set": "agent-doctor-rules/0.1",
+        "compatibility": "compatible"
+      },
+      "modes": {
+        "deterministic": "enabled",
+        "semantic": "enabled",
+        "repair": "read_only"
+      },
+      "boundaries": {
+        "workspace": "/fixture/repo",
+        "selected_regions": [
+          "repo/"
+        ],
+        "discovery": [
+          "repo/**"
+        ],
+        "inspection": [
+          "repo/**"
+        ],
+        "semantic_disclosure": [],
+        "modification": [],
+        "consent": "manifest-specific synthetic-content consent"
+      },
+      "preconditions": [
+        "Fresh isolated virtual filesystem",
+        "No runtime trace exists"
+      ],
+      "inputs": {
+        "files": [
+          {
+            "path": "repo/skills/review/SKILL.md",
+            "source_type": "skill_body",
+            "content": "reference: ../../private/policy.md\n",
+            "metadata": {},
+            "policy": {
+              "exists": true,
+              "readable": true,
+              "inspection": "allowed",
+              "semantic_disclosure": "allowed",
+              "executable": false
+            }
+          }
+        ],
+        "generators": [],
+        "configuration": {},
+        "provider": {
+          "kind": "scripted-neutral-provider",
+          "network": "simulated"
+        },
+        "clock": {
+          "now": "2026-08-17T00:00:00Z",
+          "controlled": true
+        },
+        "faults": []
+      },
+      "stimulus": {
+        "contract": "Adjudicate",
+        "steps": [
+          "Freeze the declared scope and profile",
+          "Inventory and preserve source status and locations",
+          "Run deterministic prerequisites before any semantic comparison",
+          "Adjudicate the stated question and seal one canonical result"
+        ]
+      },
+      "oracle": {
+        "question": "Is the reference valid inside the frozen workspace?",
+        "decisive_evidence": [
+          "Declaring-file-relative normalization",
+          "Normalized target leaves /fixture/repo",
+          "Profile forbids escape"
+        ],
+        "rationale": "Scope escape is decidable without reading the outside target.",
+        "acceptable_uncertainty": [
+          "The outside file may exist"
+        ],
+        "counterexample": "Target existence cannot make an out-of-bound reference valid under this profile."
+      },
+      "expected": {
+        "diagnostic": {
+          "check_id": "deterministic.reference.scope",
+          "check_state": "finding",
+          "substantive_labels": [
+            "invalid_reference"
+          ],
+          "validation_qualifiers": [],
+          "severity": "medium",
+          "potential_severity": null,
+          "confidence": "high",
+          "severity_confidence_rule": "Severity follows likely impact; confidence follows completeness of decisive evidence and remains independent."
+        },
+        "evidence_kinds": [
+          "observed",
+          "derived"
+        ],
+        "inventory": {
+          "expected_status_counts": {
+            "discovered": 1
+          },
+          "must_include": [
+            "repo/skills/review/SKILL.md"
+          ],
+          "must_exclude": [
+            "/fixture/private/policy.md"
+          ],
+          "complete": true
+        },
+        "coverage": {
+          "required_families": [
+            "inventory",
+            "adjudication"
+          ],
+          "gaps": [],
+          "run_outcome": "complete"
+        },
+        "outputs": {
+          "terminal": [
+            "Same state, labels, qualifier, severity, confidence, stable IDs, and coverage as the sealed result",
+            "Secret-safe decisive locations or excerpts"
+          ],
+          "markdown": [
+            "All decisive evidence, rationale, uncertainty, prohibited runtime claims, versions, and coverage"
+          ],
+          "json": [
+            "Three axes remain separate",
+            "Full member/evidence references and reproducibility metadata"
+          ],
+          "ci": "policy evaluated only after a valid sealed result"
+        },
+        "operation": {
+          "proposal_state": "not_requested",
+          "apply_state": "not_attempted",
+          "rollback_state": "not_attempted",
+          "files_modified": 0
+        }
+      },
+      "prohibited_outcomes": [
+        "Reading outside target",
+        "Reporting only missing",
+        "Claiming malicious intent"
+      ],
+      "cleanup": {
+        "isolation": "Case-local virtual root, provider script, clock, and faults; no shared mutable state",
+        "postconditions": [
+          "Zero fixture writes outside the case root",
+          "No network or provider state survives",
+          "Filesystem and event schedule match the pre-run manifest"
+        ]
+      },
+      "review": {
+        "status": "reviewed",
+        "reviewers": [
+          "stage-02-internal-review",
+          "stage-04-materialization-review"
+        ],
+        "reviewed_at": "2026-08-17"
+      }
+    },
+    {
+      "id": "G-012",
+      "title": "Documented Skill-list truncation",
+      "schema_version": "agent-doctor-test-scenario/0.1",
+      "fixture_version": "0.1",
+      "level": "system",
+      "case_kind": "positive",
+      "test_type": "configuration_budget",
+      "refs": {
+        "prd": [
+          "P0-R4",
+          "P0-R9",
+          "P0-R10"
+        ],
+        "acceptance": [
+          "AC-1",
+          "AC-2",
+          "AC-3",
+          "AC-14"
+        ],
+        "taxonomy": [
+          "context_budget_risk"
+        ],
+        "architecture": [
+          "AD-01",
+          "Adjudicate"
+        ],
+        "gates": [
+          "GATE-PC-INV",
+          "GATE-PC-FINDING"
+        ]
+      },
+      "profile": {
+        "platform_profile": "codex-fixture/0.1",
+        "rule_set": "agent-doctor-rules/0.1",
+        "compatibility": "compatible"
+      },
+      "modes": {
+        "deterministic": "enabled",
+        "semantic": "enabled",
+        "repair": "read_only"
+      },
+      "boundaries": {
+        "workspace": "/fixture/repo",
+        "selected_regions": [
+          "repo/"
+        ],
+        "discovery": [
+          "repo/**"
+        ],
+        "inspection": [
+          "repo/**"
+        ],
+        "semantic_disclosure": [
+          "listed fixture excerpts"
+        ],
+        "modification": [],
+        "consent": "manifest-specific synthetic-content consent"
+      },
+      "preconditions": [
+        "Fresh isolated virtual filesystem",
+        "No runtime trace exists"
+      ],
+      "inputs": {
+        "files": [],
+        "generators": [
+          {
+            "kind": "skill_series",
+            "path_pattern": "repo/skills/skill-{001..112}/SKILL.md",
+            "count": 112,
+            "content_template": "id: skill-{n}\\ndescription: Synthetic skill {n}\\n"
+          },
+          {
+            "kind": "observed_initial_list",
+            "eligible_count": 112,
+            "loaded_ordinals": {
+              "from": 1,
+              "to": 100
+            },
+            "omitted_ordinals": {
+              "from": 101,
+              "to": 112
+            }
+          }
+        ],
+        "configuration": {
+          "budget_rule": {
+            "unit": "entries",
+            "phase": "initial_skill_list",
+            "limit": 100,
+            "ordering": "ordinal",
+            "profile_rule": "budget.max-entries@0.1"
+          }
+        },
+        "provider": {
+          "kind": "scripted-neutral-provider",
+          "network": "simulated"
+        },
+        "clock": {
+          "now": "2026-08-17T00:00:00Z",
+          "controlled": true
+        },
+        "faults": []
+      },
+      "stimulus": {
+        "contract": "Adjudicate",
+        "steps": [
+          "Freeze the declared scope and profile",
+          "Inventory and preserve source status and locations",
+          "Run deterministic prerequisites before any semantic comparison",
+          "Adjudicate the stated question and seal one canonical result"
+        ]
+      },
+      "oracle": {
+        "question": "Is there a deterministic list-budget risk?",
+        "decisive_evidence": [
+          "Compatible documented 100-entry limit",
+          "112 eligible sources",
+          "Observed list contains only first 100"
+        ],
+        "rationale": "Measured exceedance and observed omission prove truncation.",
+        "acceptable_uncertainty": [
+          "No future prompt is claimed to need an omitted Skill"
+        ],
+        "counterexample": "This is not a byte/token estimate; the rule and observed list use entries."
+      },
+      "expected": {
+        "diagnostic": {
+          "check_id": "deterministic.context.list-budget",
+          "check_state": "finding",
+          "substantive_labels": [
+            "context_budget_risk"
+          ],
+          "validation_qualifiers": [],
+          "severity": "medium",
+          "potential_severity": null,
+          "confidence": "high",
+          "severity_confidence_rule": "Severity follows likely impact; confidence follows completeness of decisive evidence and remains independent."
+        },
+        "evidence_kinds": [
+          "observed",
+          "derived"
+        ],
+        "inventory": {
+          "expected_status_counts": {
+            "discovered": 100,
+            "truncated": 12
+          },
+          "must_include": [
+            "repo/skills/skill-001/SKILL.md",
+            "repo/skills/skill-112/SKILL.md"
+          ],
+          "must_exclude": [],
+          "complete": true
+        },
+        "coverage": {
+          "required_families": [
+            "inventory",
+            "adjudication"
+          ],
+          "gaps": [],
+          "run_outcome": "complete"
+        },
+        "outputs": {
+          "terminal": [
+            "Same state, labels, qualifier, severity, confidence, stable IDs, and coverage as the sealed result",
+            "Secret-safe decisive locations or excerpts"
+          ],
+          "markdown": [
+            "All decisive evidence, rationale, uncertainty, prohibited runtime claims, versions, and coverage"
+          ],
+          "json": [
+            "Three axes remain separate",
+            "Full member/evidence references and reproducibility metadata"
+          ],
+          "ci": "policy evaluated only after a valid sealed result"
+        },
+        "operation": {
+          "proposal_state": "not_requested",
+          "apply_state": "not_attempted",
+          "rollback_state": "not_attempted",
+          "files_modified": 0
+        }
+      },
+      "prohibited_outcomes": [
+        "Guaranteed runtime failure",
+        "Byte-to-token estimate",
+        "Omission of the 12 truncated inventory records"
+      ],
+      "cleanup": {
+        "isolation": "Case-local virtual root, provider script, clock, and faults; no shared mutable state",
+        "postconditions": [
+          "Zero fixture writes outside the case root",
+          "No network or provider state survives",
+          "Filesystem and event schedule match the pre-run manifest"
+        ]
+      },
+      "review": {
+        "status": "reviewed",
+        "reviewers": [
+          "stage-02-internal-review",
+          "stage-04-materialization-review"
+        ],
+        "reviewed_at": "2026-08-17"
+      }
+    },
+    {
+      "id": "G-013",
+      "title": "Large descriptions with unknown allocation",
+      "schema_version": "agent-doctor-test-scenario/0.1",
+      "fixture_version": "0.1",
+      "level": "system",
+      "case_kind": "abstention",
+      "test_type": "configuration_budget",
+      "refs": {
+        "prd": [
+          "P0-R9",
+          "P0-R11",
+          "P0-R12",
+          "P0-R13",
+          "P0-R14",
+          "P1-R6"
+        ],
+        "acceptance": [
+          "AC-6"
+        ],
+        "taxonomy": [
+          "context_budget_risk",
+          "insufficient_evidence"
+        ],
+        "architecture": [
+          "AD-01",
+          "Adjudicate"
+        ],
+        "gates": [
+          "GATE-PC-INV",
+          "GATE-PC-FINDING"
+        ]
+      },
+      "profile": {
+        "platform_profile": "codex-fixture/unknown-budget",
+        "rule_set": "agent-doctor-rules/0.1",
+        "compatibility": "unknown"
+      },
+      "modes": {
+        "deterministic": "enabled",
+        "semantic": "enabled",
+        "repair": "read_only"
+      },
+      "boundaries": {
+        "workspace": "/fixture/repo",
+        "selected_regions": [
+          "repo/"
+        ],
+        "discovery": [
+          "repo/**"
+        ],
+        "inspection": [
+          "repo/**"
+        ],
+        "semantic_disclosure": [
+          "listed fixture excerpts"
+        ],
+        "modification": [],
+        "consent": "manifest-specific synthetic-content consent"
+      },
+      "preconditions": [
+        "Fresh isolated virtual filesystem",
+        "No runtime trace exists"
+      ],
+      "inputs": {
+        "files": [
+          {
+            "path": "repo/skills/a/SKILL.md",
+            "source_type": "skill_body",
+            "content": "description: verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose verbose \n",
+            "metadata": {},
+            "policy": {
+              "exists": true,
+              "readable": true,
+              "inspection": "allowed",
+              "semantic_disclosure": "allowed",
+              "executable": false
+            }
+          },
+          {
+            "path": "repo/skills/b/SKILL.md",
+            "source_type": "skill_body",
+            "content": "description: lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy lengthy \n",
+            "metadata": {},
+            "policy": {
+              "exists": true,
+              "readable": true,
+              "inspection": "allowed",
+              "semantic_disclosure": "allowed",
+              "executable": false
+            }
+          }
+        ],
+        "generators": [],
+        "configuration": {},
+        "provider": {
+          "kind": "scripted-neutral-provider",
+          "network": "simulated"
+        },
+        "clock": {
+          "now": "2026-08-17T00:00:00Z",
+          "controlled": true
+        },
+        "faults": []
+      },
+      "stimulus": {
+        "contract": "Adjudicate",
+        "steps": [
+          "Freeze the declared scope and profile",
+          "Inventory and preserve source status and locations",
+          "Run deterministic prerequisites before any semantic comparison",
+          "Adjudicate the stated question and seal one canonical result"
+        ]
+      },
+      "oracle": {
+        "question": "Do visually large descriptions establish a context-budget finding?",
+        "decisive_evidence": [
+          "Description bytes are observable",
+          "No documented current budget, tokenizer, loaded-list measurement, or truncation exists"
+        ],
+        "rationale": "Visual length cannot establish the relevant loading unit or consequence.",
+        "acceptable_uncertainty": [
+          "Measured bytes may be reported as inventory facts only"
+        ],
+        "counterexample": "A deterministic finding would need a compatible limit and correct-unit measurement."
+      },
+      "expected": {
+        "diagnostic": {
+          "check_id": "deterministic.context.budget",
+          "check_state": "insufficient_evidence",
+          "substantive_labels": [],
+          "validation_qualifiers": [],
+          "severity": null,
+          "potential_severity": null,
+          "confidence": "high",
+          "severity_confidence_rule": "Severity follows likely impact; confidence follows completeness of decisive evidence and remains independent."
+        },
+        "evidence_kinds": [
+          "observed"
+        ],
+        "inventory": {
+          "expected_status_counts": {
+            "discovered": 2
+          },
+          "must_include": [
+            "repo/skills/a/SKILL.md",
+            "repo/skills/b/SKILL.md"
+          ],
+          "must_exclude": [],
+          "complete": true
+        },
+        "coverage": {
+          "required_families": [
+            "inventory",
+            "adjudication"
+          ],
+          "gaps": [
+            "Compatible context-budget rule is absent"
+          ],
+          "run_outcome": "complete_with_gaps"
+        },
+        "outputs": {
+          "terminal": [
+            "Same state, labels, qualifier, severity, confidence, stable IDs, and coverage as the sealed result",
+            "Secret-safe decisive locations or excerpts"
+          ],
+          "markdown": [
+            "All decisive evidence, rationale, uncertainty, prohibited runtime claims, versions, and coverage"
+          ],
+          "json": [
+            "Three axes remain separate",
+            "Full member/evidence references and reproducibility metadata"
+          ],
+          "ci": "execution outcome depends on whether the affected family is declared required; never policy success by omission"
+        },
+        "operation": {
+          "proposal_state": "not_requested",
+          "apply_state": "not_attempted",
+          "rollback_state": "not_attempted",
+          "files_modified": 0
+        }
+      },
+      "prohibited_outcomes": [
+        "High-confidence context_budget_risk",
+        "Guessed token count",
+        "pass asserting no risk"
+      ],
+      "cleanup": {
+        "isolation": "Case-local virtual root, provider script, clock, and faults; no shared mutable state",
+        "postconditions": [
+          "Zero fixture writes outside the case root",
+          "No network or provider state survives",
+          "Filesystem and event schedule match the pre-run manifest"
+        ]
+      },
+      "review": {
+        "status": "reviewed",
+        "reviewers": [
+          "stage-02-internal-review",
+          "stage-04-materialization-review"
+        ],
+        "reviewed_at": "2026-08-17"
+      }
+    },
+    {
+      "id": "G-014",
+      "title": "Unsupported required metadata value",
+      "schema_version": "agent-doctor-test-scenario/0.1",
+      "fixture_version": "0.1",
+      "level": "system",
+      "case_kind": "positive",
+      "test_type": "configuration_budget",
+      "refs": {
+        "prd": [
+          "P0-R8",
+          "P0-R9",
+          "P0-R10"
+        ],
+        "acceptance": [
+          "AC-2",
+          "AC-3"
+        ],
+        "taxonomy": [
+          "configuration_risk"
+        ],
+        "architecture": [
+          "AD-01",
+          "Adjudicate"
+        ],
+        "gates": [
+          "GATE-PC-INV",
+          "GATE-PC-FINDING"
+        ]
+      },
+      "profile": {
+        "platform_profile": "codex-fixture/0.1",
+        "rule_set": "agent-doctor-rules/0.1",
+        "compatibility": "compatible"
+      },
+      "modes": {
+        "deterministic": "enabled",
+        "semantic": "enabled",
+        "repair": "read_only"
+      },
+      "boundaries": {
+        "workspace": "/fixture/repo",
+        "selected_regions": [
+          "repo/"
+        ],
+        "discovery": [
+          "repo/**"
+        ],
+        "inspection": [
+          "repo/**"
+        ],
+        "semantic_disclosure": [
+          "listed fixture excerpts"
+        ],
+        "modification": [],
+        "consent": "manifest-specific synthetic-content consent"
+      },
+      "preconditions": [
+        "Fresh isolated virtual filesystem",
+        "No runtime trace exists"
+      ],
+      "inputs": {
+        "files": [
+          {
+            "path": "repo/skills/review/manifest.yaml",
+            "source_type": "skill_manifest",
+            "content": "id: review\nmode: sometimes\n",
+            "metadata": {},
+            "policy": {
+              "exists": true,
+              "readable": true,
+              "inspection": "allowed",
+              "semantic_disclosure": "allowed",
+              "executable": false
+            }
+          }
+        ],
+        "generators": [],
+        "configuration": {
+          "schema": {
+            "field": "mode",
+            "allowed": [
+              "always",
+              "on_request"
+            ],
+            "invalid_effect": "declaration ignored"
+          }
+        },
+        "provider": {
+          "kind": "scripted-neutral-provider",
+          "network": "simulated"
+        },
+        "clock": {
+          "now": "2026-08-17T00:00:00Z",
+          "controlled": true
+        },
+        "faults": []
+      },
+      "stimulus": {
+        "contract": "Adjudicate",
+        "steps": [
+          "Freeze the declared scope and profile",
+          "Inventory and preserve source status and locations",
+          "Run deterministic prerequisites before any semantic comparison",
+          "Adjudicate the stated question and seal one canonical result"
+        ]
+      },
+      "oracle": {
+        "question": "Is the declaration valid and behaviorally relevant?",
+        "decisive_evidence": [
+          "Exact mode value sometimes",
+          "Compatible schema permits only always/on_request",
+          "Invalid values are ignored"
+        ],
+        "rationale": "A versioned schema violation has a documented discovery effect.",
+        "acceptable_uncertainty": [
+          "Whether a future prompt needed the ignored declaration is runtime-only"
+        ],
+        "counterexample": "Forward compatibility is excluded by the profile's closed required-field enum."
+      },
+      "expected": {
+        "diagnostic": {
+          "check_id": "deterministic.configuration.schema",
+          "check_state": "finding",
+          "substantive_labels": [
+            "configuration_risk"
+          ],
+          "validation_qualifiers": [],
+          "severity": "medium",
+          "potential_severity": null,
+          "confidence": "high",
+          "severity_confidence_rule": "Severity follows likely impact; confidence follows completeness of decisive evidence and remains independent."
+        },
+        "evidence_kinds": [
+          "observed",
+          "derived"
+        ],
+        "inventory": {
+          "expected_status_counts": {
+            "discovered": 1
+          },
+          "must_include": [
+            "repo/skills/review/manifest.yaml"
+          ],
+          "must_exclude": [],
+          "complete": true
+        },
+        "coverage": {
+          "required_families": [
+            "inventory",
+            "adjudication"
+          ],
+          "gaps": [],
+          "run_outcome": "complete"
+        },
+        "outputs": {
+          "terminal": [
+            "Same state, labels, qualifier, severity, confidence, stable IDs, and coverage as the sealed result",
+            "Secret-safe decisive locations or excerpts"
+          ],
+          "markdown": [
+            "All decisive evidence, rationale, uncertainty, prohibited runtime claims, versions, and coverage"
+          ],
+          "json": [
+            "Three axes remain separate",
+            "Full member/evidence references and reproducibility metadata"
+          ],
+          "ci": "policy evaluated only after a valid sealed result"
+        },
+        "operation": {
+          "proposal_state": "not_requested",
+          "apply_state": "not_attempted",
+          "rollback_state": "not_attempted",
+          "files_modified": 0
+        }
+      },
+      "prohibited_outcomes": [
+        "Treating sometimes as forward-compatible",
+        "invalid_reference"
+      ],
+      "cleanup": {
+        "isolation": "Case-local virtual root, provider script, clock, and faults; no shared mutable state",
+        "postconditions": [
+          "Zero fixture writes outside the case root",
+          "No network or provider state survives",
+          "Filesystem and event schedule match the pre-run manifest"
+        ]
+      },
+      "review": {
+        "status": "reviewed",
+        "reviewers": [
+          "stage-02-internal-review",
+          "stage-04-materialization-review"
+        ],
+        "reviewed_at": "2026-08-17"
+      }
+    },
+    {
+      "id": "G-015",
+      "title": "Semantic checks disabled",
+      "schema_version": "agent-doctor-test-scenario/0.1",
+      "fixture_version": "0.1",
+      "level": "system",
+      "case_kind": "not_run",
+      "test_type": "semantic_contract",
+      "refs": {
+        "prd": [
+          "P0-R13",
+          "P0-R26",
+          "P0-R31"
+        ],
+        "acceptance": [
+          "AC-14",
+          "AC-17"
+        ],
+        "taxonomy": [
+          "not_run"
+        ],
+        "architecture": [
+          "AD-01",
+          "Adjudicate"
+        ],
+        "gates": [
+          "GATE-PC-INV",
+          "GATE-PC-FINDING"
+        ]
+      },
+      "profile": {
+        "platform_profile": "codex-fixture/0.1",
+        "rule_set": "agent-doctor-rules/0.1",
+        "compatibility": "compatible"
+      },
+      "modes": {
+        "deterministic": "enabled",
+        "semantic": "disabled",
+        "repair": "read_only"
+      },
+      "boundaries": {
+        "workspace": "/fixture/repo",
+        "selected_regions": [
+          "repo/"
+        ],
+        "discovery": [
+          "repo/**"
+        ],
+        "inspection": [
+          "repo/**"
+        ],
+        "semantic_disclosure": [],
+        "modification": [],
+        "consent": "semantic mode disabled; no provider consent"
+      },
+      "preconditions": [
+        "Fresh isolated virtual filesystem",
+        "No runtime trace exists"
+      ],
+      "inputs": {
+        "files": [
+          {
+            "path": "repo/skills/a/SKILL.md",
+            "source_type": "skill_body",
+            "content": "description: Review code.\n",
+            "metadata": {},
+            "policy": {
+              "exists": true,
+              "readable": true,
+              "inspection": "allowed",
+              "semantic_disclosure": "allowed",
+              "executable": false
+            }
+          },
+          {
+            "path": "repo/skills/b/SKILL.md",
+            "source_type": "skill_body",
+            "content": "description: Review changes.\n",
+            "metadata": {},
+            "policy": {
+              "exists": true,
+              "readable": true,
+              "inspection": "allowed",
+              "semantic_disclosure": "allowed",
+              "executable": false
+            }
+          }
+        ],
+        "generators": [],
+        "configuration": {},
+        "provider": {
+          "kind": "none"
+        },
+        "clock": {
+          "now": "2026-08-17T00:00:00Z",
+          "controlled": true
+        },
+        "faults": []
+      },
+      "stimulus": {
+        "contract": "Adjudicate",
+        "steps": [
+          "Freeze the declared scope and profile",
+          "Inventory and preserve source status and locations",
+          "Run deterministic prerequisites before any semantic comparison",
+          "Adjudicate the stated question and seal one canonical result"
+        ]
+      },
+      "oracle": {
+        "question": "Did semantic overlap find no issue?",
+        "decisive_evidence": [
+          "Semantic mode is disabled",
+          "Semantic check lifecycle remains not_started",
+          "Deterministic checks complete"
+        ],
+        "rationale": "The semantic check was not attempted and must not be represented as pass.",
+        "acceptable_uncertainty": [
+          "The Skills may or may not overlap"
+        ],
+        "counterexample": "insufficient_evidence requires an attempted check; this check never started."
+      },
+      "expected": {
+        "diagnostic": {
+          "check_id": "semantic.trigger.overlap",
+          "check_state": "not_run",
+          "substantive_labels": [],
+          "validation_qualifiers": [],
+          "severity": null,
+          "potential_severity": null,
+          "confidence": null,
+          "severity_confidence_rule": "not_run carries no substantive severity or confidence."
+        },
+        "evidence_kinds": [
+          "observed"
+        ],
+        "inventory": {
+          "expected_status_counts": {
+            "discovered": 2
+          },
+          "must_include": [
+            "repo/skills/a/SKILL.md",
+            "repo/skills/b/SKILL.md"
+          ],
+          "must_exclude": [],
+          "complete": true
+        },
+        "coverage": {
+          "required_families": [
+            "inventory",
+            "deterministic",
+            "semantic"
+          ],
+          "gaps": [
+            "semantic.trigger.overlap disabled by frozen run plan"
+          ],
+          "run_outcome": "complete"
+        },
+        "outputs": {
+          "terminal": [
+            "Same state, labels, qualifier, severity, confidence, stable IDs, and coverage as the sealed result",
+            "Secret-safe decisive locations or excerpts"
+          ],
+          "markdown": [
+            "All decisive evidence, rationale, uncertainty, prohibited runtime claims, versions, and coverage"
+          ],
+          "json": [
+            "Three axes remain separate",
+            "Full member/evidence references and reproducibility metadata"
+          ],
+          "ci": "policy evaluated only after a valid sealed result"
+        },
+        "operation": {
+          "proposal_state": "not_requested",
+          "apply_state": "not_attempted",
+          "rollback_state": "not_attempted",
+          "files_modified": 0
+        }
+      },
+      "prohibited_outcomes": [
+        "semantic pass",
+        "insufficient_evidence",
+        "Suppression of deterministic results"
+      ],
+      "cleanup": {
+        "isolation": "Case-local virtual root, provider script, clock, and faults; no shared mutable state",
+        "postconditions": [
+          "Zero fixture writes outside the case root",
+          "No network or provider state survives",
+          "Filesystem and event schedule match the pre-run manifest"
+        ]
+      },
+      "review": {
+        "status": "reviewed",
+        "reviewers": [
+          "stage-02-internal-review",
+          "stage-04-materialization-review"
+        ],
+        "reviewed_at": "2026-08-17"
+      }
+    },
+    {
+      "id": "G-016",
+      "title": "Broad triggers with undisclosed bodies",
+      "schema_version": "agent-doctor-test-scenario/0.1",
+      "fixture_version": "0.1",
+      "level": "system",
+      "case_kind": "abstention",
+      "test_type": "semantic_contract",
+      "refs": {
+        "prd": [
+          "P0-R12",
+          "P0-R28",
+          "P0-R29",
+          "P1-R1",
+          "P1-R2",
+          "P1-R3",
+          "P1-R6"
+        ],
+        "acceptance": [
+          "AC-6",
+          "AC-15"
+        ],
+        "taxonomy": [
+          "scope_overlap",
+          "insufficient_evidence"
+        ],
+        "architecture": [
+          "AD-01",
+          "Adjudicate"
+        ],
+        "gates": [
+          "GATE-PC-INV",
+          "GATE-PC-FINDING"
+        ]
+      },
+      "profile": {
+        "platform_profile": "codex-fixture/0.1",
+        "rule_set": "agent-doctor-rules/0.1",
+        "compatibility": "compatible"
+      },
+      "modes": {
+        "deterministic": "enabled",
+        "semantic": "enabled",
+        "repair": "read_only"
+      },
+      "boundaries": {
+        "workspace": "/fixture/repo",
+        "selected_regions": [
+          "repo/"
+        ],
+        "discovery": [
+          "repo/**"
+        ],
+        "inspection": [
+          "repo/skills/*/manifest.yaml"
+        ],
+        "semantic_disclosure": [
+          "repo/skills/*/manifest.yaml descriptions only"
+        ],
+        "modification": [],
+        "consent": "manifest-specific synthetic-content consent"
+      },
+      "preconditions": [
+        "Fresh isolated virtual filesystem",
+        "No runtime trace exists"
+      ],
+      "inputs": {
+        "files": [
+          {
+            "path": "repo/skills/a/manifest.yaml",
+            "source_type": "skill_manifest",
+            "content": "id: a\ndescription: Use for code review.\n",
+            "metadata": {},
+            "policy": {
+              "exists": true,
+              "readable": true,
+              "inspection": "allowed",
+              "semantic_disclosure": "allowed",
+              "executable": false
+            }
+          },
+          {
+            "path": "repo/skills/a/SKILL.md",
+            "source_type": "skill_body",
+            "content": "SYNTHETIC_WITHHELD_BODY_A\n",
+            "metadata": {},
+            "policy": {
+              "exists": true,
+              "readable": true,
+              "inspection": "withheld",
+              "semantic_disclosure": "withheld",
+              "executable": false
+            }
+          },
+          {
+            "path": "repo/skills/b/manifest.yaml",
+            "source_type": "skill_manifest",
+            "content": "id: b\ndescription: Use for code review.\n",
+            "metadata": {},
+            "policy": {
+              "exists": true,
+              "readable": true,
+              "inspection": "allowed",
+              "semantic_disclosure": "allowed",
+              "executable": false
+            }
+          },
+          {
+            "path": "repo/skills/b/SKILL.md",
+            "source_type": "skill_body",
+            "content": "SYNTHETIC_WITHHELD_BODY_B\n",
+            "metadata": {},
+            "policy": {
+              "exists": true,
+              "readable": true,
+              "inspection": "withheld",
+              "semantic_disclosure": "withheld",
+              "executable": false
+            }
+          }
+        ],
+        "generators": [],
+        "configuration": {},
+        "provider": {
+          "kind": "scripted-neutral-provider",
+          "network": "simulated"
+        },
+        "clock": {
+          "now": "2026-08-17T00:00:00Z",
+          "controlled": true
+        },
+        "faults": []
+      },
+      "stimulus": {
+        "contract": "Adjudicate",
+        "steps": [
+          "Freeze the declared scope and profile",
+          "Inventory and preserve source status and locations",
+          "Run deterministic prerequisites before any semantic comparison",
+          "Adjudicate the stated question and seal one canonical result"
+        ]
+      },
+      "oracle": {
+        "question": "Are the Skills redundant or conflicting?",
+        "decisive_evidence": [
+          "Approved descriptions support possible trigger overlap",
+          "Bodies needed for behavioral classification are outside inspection/disclosure consent"
+        ],
+        "rationale": "The decisive behavior claims are unavailable, so redundancy/conflict must abstain.",
+        "acceptable_uncertainty": [
+          "A separately scoped overlap subquestion may be a medium-confidence candidate with a witness"
+        ],
+        "counterexample": "A behavioral label based on descriptions alone would erase unknown exclusions and actions."
+      },
+      "expected": {
+        "diagnostic": {
+          "check_id": "semantic.skill.behavioral-relationship",
+          "check_state": "insufficient_evidence",
+          "substantive_labels": [],
+          "validation_qualifiers": [],
+          "severity": null,
+          "potential_severity": null,
+          "confidence": "high",
+          "severity_confidence_rule": "Severity follows likely impact; confidence follows completeness of decisive evidence and remains independent."
+        },
+        "evidence_kinds": [
+          "observed"
+        ],
+        "inventory": {
+          "expected_status_counts": {
+            "discovered": 4
+          },
+          "must_include": [
+            "repo/skills/a/manifest.yaml",
+            "repo/skills/a/SKILL.md",
+            "repo/skills/b/manifest.yaml",
+            "repo/skills/b/SKILL.md"
+          ],
+          "must_exclude": [],
+          "complete": true
+        },
+        "coverage": {
+          "required_families": [
+            "inventory",
+            "adjudication"
+          ],
+          "gaps": [
+            "Skill bodies intentionally withheld"
+          ],
+          "run_outcome": "complete_with_gaps"
+        },
+        "outputs": {
+          "terminal": [
+            "Same state, labels, qualifier, severity, confidence, stable IDs, and coverage as the sealed result",
+            "Secret-safe decisive locations or excerpts"
+          ],
+          "markdown": [
+            "All decisive evidence, rationale, uncertainty, prohibited runtime claims, versions, and coverage"
+          ],
+          "json": [
+            "Three axes remain separate",
+            "Full member/evidence references and reproducibility metadata"
+          ],
+          "ci": "execution outcome depends on whether the affected family is declared required; never policy success by omission"
+        },
+        "operation": {
+          "proposal_state": "not_requested",
+          "apply_state": "not_attempted",
+          "rollback_state": "not_attempted",
+          "files_modified": 0
+        }
+      },
+      "prohibited_outcomes": [
+        "behavioral_redundancy",
+        "semantic_conflict",
+        "pass",
+        "Reading or sending withheld bodies"
+      ],
+      "cleanup": {
+        "isolation": "Case-local virtual root, provider script, clock, and faults; no shared mutable state",
+        "postconditions": [
+          "Zero fixture writes outside the case root",
+          "No network or provider state survives",
+          "Filesystem and event schedule match the pre-run manifest"
+        ]
+      },
+      "review": {
+        "status": "reviewed",
+        "reviewers": [
+          "stage-02-internal-review",
+          "stage-04-materialization-review"
+        ],
+        "reviewed_at": "2026-08-17"
+      }
+    },
+    {
+      "id": "G-017",
+      "title": "Testable routing ambiguity without observed failure",
+      "schema_version": "agent-doctor-test-scenario/0.1",
+      "fixture_version": "0.1",
+      "level": "system",
+      "case_kind": "positive",
+      "test_type": "semantic_contract",
+      "refs": {
+        "prd": [
+          "P1-R1",
+          "P1-R6"
+        ],
+        "acceptance": [
+          "AC-5",
+          "AC-6"
+        ],
+        "taxonomy": [
+          "scope_overlap",
+          "runtime_validation_needed"
+        ],
+        "architecture": [
+          "AD-01",
+          "Adjudicate"
+        ],
+        "gates": [
+          "GATE-PC-INV",
+          "GATE-PC-FINDING"
+        ]
+      },
+      "profile": {
+        "platform_profile": "codex-fixture/0.1",
+        "rule_set": "agent-doctor-rules/0.1",
+        "compatibility": "compatible"
+      },
+      "modes": {
+        "deterministic": "enabled",
+        "semantic": "enabled",
+        "repair": "read_only"
+      },
+      "boundaries": {
+        "workspace": "/fixture/repo",
+        "selected_regions": [
+          "repo/"
+        ],
+        "discovery": [
+          "repo/**"
+        ],
+        "inspection": [
+          "repo/**"
+        ],
+        "semantic_disclosure": [
+          "listed fixture excerpts"
+        ],
+        "modification": [],
+        "consent": "manifest-specific synthetic-content consent"
+      },
+      "preconditions": [
+        "Fresh isolated virtual filesystem",
+        "No runtime trace exists"
+      ],
+      "inputs": {
+        "files": [
+          {
+            "path": "repo/skills/a/SKILL.md",
+            "source_type": "skill_body",
+            "content": "Primary handler for requests: review this change.\nAction: summarize correctness.\n",
+            "metadata": {},
+            "policy": {
+              "exists": true,
+              "readable": true,
+              "inspection": "allowed",
+              "semantic_disclosure": "allowed",
+              "executable": false
+            }
+          },
+          {
+            "path": "repo/skills/b/SKILL.md",
+            "source_type": "skill_body",
+            "content": "Primary handler for requests: review this change.\nAction: verify policy compliance.\n",
+            "metadata": {},
+            "policy": {
+              "exists": true,
+              "readable": true,
+              "inspection": "allowed",
+              "semantic_disclosure": "allowed",
+              "executable": false
+            }
+          }
+        ],
+        "generators": [],
+        "configuration": {
+          "witness": "Review this change."
+        },
+        "provider": {
+          "kind": "scripted-neutral-provider",
+          "network": "simulated"
+        },
+        "clock": {
+          "now": "2026-08-17T00:00:00Z",
+          "controlled": true
+        },
+        "faults": []
+      },
+      "stimulus": {
+        "contract": "Adjudicate",
+        "steps": [
+          "Freeze the declared scope and profile",
+          "Inventory and preserve source status and locations",
+          "Run deterministic prerequisites before any semantic comparison",
+          "Adjudicate the stated question and seal one canonical result"
+        ]
+      },
+      "oracle": {
+        "question": "Will routing choose an unintended handler?",
+        "decisive_evidence": [
+          "Identical explicit witness triggers",
+          "Both claim primary-handler status",
+          "Actions are compatible and distinct",
+          "No routing rule or trace"
+        ],
+        "rationale": "Static evidence supports a falsifiable selection-risk hypothesis, not observed misrouting.",
+        "acceptable_uncertainty": [
+          "Controlled runs may show stable correct routing"
+        ],
+        "counterexample": "A semantic conflict would require incompatible actions; the actions can coexist."
+      },
+      "expected": {
+        "diagnostic": {
+          "check_id": "semantic.routing.selection-risk",
+          "check_state": "candidate",
+          "substantive_labels": [
+            "scope_overlap"
+          ],
+          "validation_qualifiers": [
+            "runtime_validation_needed"
+          ],
+          "severity": null,
+          "potential_severity": "medium",
+          "confidence": "medium",
+          "severity_confidence_rule": "Severity follows likely impact; confidence follows completeness of decisive evidence and remains independent."
+        },
+        "evidence_kinds": [
+          "observed",
+          "inferred"
+        ],
+        "inventory": {
+          "expected_status_counts": {
+            "discovered": 2
+          },
+          "must_include": [
+            "repo/skills/a/SKILL.md",
+            "repo/skills/b/SKILL.md"
+          ],
+          "must_exclude": [],
+          "complete": true
+        },
+        "coverage": {
+          "required_families": [
+            "inventory",
+            "adjudication"
+          ],
+          "gaps": [],
+          "run_outcome": "complete"
+        },
+        "outputs": {
+          "terminal": [
+            "Same state, labels, qualifier, severity, confidence, stable IDs, and coverage as the sealed result",
+            "Secret-safe decisive locations or excerpts"
+          ],
+          "markdown": [
+            "All decisive evidence, rationale, uncertainty, prohibited runtime claims, versions, and coverage"
+          ],
+          "json": [
+            "Three axes remain separate",
+            "Full member/evidence references and reproducibility metadata"
+          ],
+          "ci": "policy evaluated only after a valid sealed result"
+        },
+        "operation": {
+          "proposal_state": "not_requested",
+          "apply_state": "not_attempted",
+          "rollback_state": "not_attempted",
+          "files_modified": 0
+        }
+      },
+      "prohibited_outcomes": [
+        "finding that misrouting occurred",
+        "semantic_conflict",
+        "insufficient_evidence without the available testable hypothesis"
+      ],
+      "cleanup": {
+        "isolation": "Case-local virtual root, provider script, clock, and faults; no shared mutable state",
+        "postconditions": [
+          "Zero fixture writes outside the case root",
+          "No network or provider state survives",
+          "Filesystem and event schedule match the pre-run manifest"
+        ]
+      },
+      "review": {
+        "status": "reviewed",
+        "reviewers": [
+          "stage-02-internal-review",
+          "stage-04-materialization-review"
+        ],
+        "reviewed_at": "2026-08-17"
+      }
+    },
+    {
+      "id": "G-018",
+      "title": "One interaction with labels separated by dimension",
+      "schema_version": "agent-doctor-test-scenario/0.1",
+      "fixture_version": "0.1",
+      "level": "system",
+      "case_kind": "boundary",
+      "test_type": "adjudication_grouping",
+      "refs": {
+        "prd": [
+          "P0-R15",
+          "P1-R2",
+          "P1-R5"
+        ],
+        "acceptance": [
+          "AC-3",
+          "AC-7"
+        ],
+        "taxonomy": [
+          "scope_overlap",
+          "behavioral_redundancy",
+          "semantic_conflict"
+        ],
+        "architecture": [
+          "AD-01",
+          "Adjudicate"
+        ],
+        "gates": [
+          "GATE-PC-INV",
+          "GATE-PC-FINDING"
+        ]
+      },
+      "profile": {
+        "platform_profile": "codex-fixture/0.1",
+        "rule_set": "agent-doctor-rules/0.1",
+        "compatibility": "compatible"
+      },
+      "modes": {
+        "deterministic": "enabled",
+        "semantic": "enabled",
+        "repair": "read_only"
+      },
+      "boundaries": {
+        "workspace": "/fixture/repo",
+        "selected_regions": [
+          "repo/"
+        ],
+        "discovery": [
+          "repo/**"
+        ],
+        "inspection": [
+          "repo/**"
+        ],
+        "semantic_disclosure": [
+          "listed fixture excerpts"
+        ],
+        "modification": [],
+        "consent": "manifest-specific synthetic-content consent"
+      },
+      "preconditions": [
+        "Fresh isolated virtual filesystem",
+        "No runtime trace exists"
+      ],
+      "inputs": {
+        "files": [
+          {
+            "path": "repo/skills/a/SKILL.md",
+            "source_type": "skill_body",
+            "content": "Trigger: review changes.\nOutput: include a risk summary.\nAction: ask before editing.\n",
+            "metadata": {},
+            "policy": {
+              "exists": true,
+              "readable": true,
+              "inspection": "allowed",
+              "semantic_disclosure": "allowed",
+              "executable": false
+            }
+          },
+          {
+            "path": "repo/skills/b/SKILL.md",
+            "source_type": "skill_body",
+            "content": "Trigger: review changes.\nOutput: include a risk summary.\nAction: edit without questions.\n",
+            "metadata": {},
+            "policy": {
+              "exists": true,
+              "readable": true,
+              "inspection": "allowed",
+              "semantic_disclosure": "allowed",
+              "executable": false
+            }
+          }
+        ],
+        "generators": [],
+        "configuration": {
+          "witness": "Review and edit this change.",
+          "expected_dimensions": [
+            "risk-summary-output",
+            "edit-question-policy"
+          ]
+        },
+        "provider": {
+          "kind": "scripted-neutral-provider",
+          "network": "simulated"
+        },
+        "clock": {
+          "now": "2026-08-17T00:00:00Z",
+          "controlled": true
+        },
+        "faults": []
+      },
+      "stimulus": {
+        "contract": "Adjudicate",
+        "steps": [
+          "Freeze the declared scope and profile",
+          "Inventory and preserve source status and locations",
+          "Run deterministic prerequisites before any semantic comparison",
+          "Adjudicate the stated question and seal one canonical result"
+        ]
+      },
+      "oracle": {
+        "question": "How is the interaction represented without collapsing dimensions?",
+        "decisive_evidence": [
+          "Same trigger region",
+          "Same risk-summary obligation",
+          "Incompatible ask-before-edit/edit-without-questions obligations"
+        ],
+        "rationale": "One group retains redundancy on output and conflict on edit/question policy as separate dimension-qualified assessments.",
+        "acceptable_uncertainty": [
+          "Runtime selection remains unknown"
+        ],
+        "counterexample": "Applying both labels to one dimension would be invalid; explicit dimension IDs prevent it."
+      },
+      "expected": {
+        "diagnostic": {
+          "check_id": "semantic.interaction.multidimension",
+          "check_state": "finding",
+          "substantive_labels": [
+            "scope_overlap",
+            "behavioral_redundancy",
+            "semantic_conflict"
+          ],
+          "validation_qualifiers": [],
+          "severity": "high",
+          "potential_severity": null,
+          "confidence": "high",
+          "severity_confidence_rule": "Severity follows likely impact; confidence follows completeness of decisive evidence and remains independent."
+        },
+        "evidence_kinds": [
+          "observed",
+          "derived",
+          "inferred"
+        ],
+        "inventory": {
+          "expected_status_counts": {
+            "discovered": 2
+          },
+          "must_include": [
+            "repo/skills/a/SKILL.md",
+            "repo/skills/b/SKILL.md"
+          ],
+          "must_exclude": [],
+          "complete": true
+        },
+        "coverage": {
+          "required_families": [
+            "inventory",
+            "adjudication"
+          ],
+          "gaps": [],
+          "run_outcome": "complete"
+        },
+        "outputs": {
+          "terminal": [
+            "Same state, labels, qualifier, severity, confidence, stable IDs, and coverage as the sealed result",
+            "Secret-safe decisive locations or excerpts"
+          ],
+          "markdown": [
+            "All decisive evidence, rationale, uncertainty, prohibited runtime claims, versions, and coverage"
+          ],
+          "json": [
+            "Three axes remain separate",
+            "Full member/evidence references and reproducibility metadata"
+          ],
+          "ci": "policy evaluated only after a valid sealed result"
+        },
+        "operation": {
+          "proposal_state": "not_requested",
+          "apply_state": "not_attempted",
+          "rollback_state": "not_attempted",
+          "files_modified": 0
+        }
+      },
+      "prohibited_outcomes": [
+        "Duplicate user findings per repeated line",
+        "Only redundancy for the whole pair",
+        "Conflict and redundancy on the same claim/region/dimension"
+      ],
+      "cleanup": {
+        "isolation": "Case-local virtual root, provider script, clock, and faults; no shared mutable state",
+        "postconditions": [
+          "Zero fixture writes outside the case root",
+          "No network or provider state survives",
+          "Filesystem and event schedule match the pre-run manifest"
+        ]
+      },
+      "review": {
+        "status": "reviewed",
+        "reviewers": [
+          "stage-02-internal-review",
+          "stage-04-materialization-review"
+        ],
+        "reviewed_at": "2026-08-17"
+      }
+    },
+    {
+      "id": "G-019",
+      "title": "Disjoint directory scopes despite identical text",
+      "schema_version": "agent-doctor-test-scenario/0.1",
+      "fixture_version": "0.1",
+      "level": "system",
+      "case_kind": "negative",
+      "test_type": "scope_precedence",
+      "refs": {
+        "prd": [
+          "P0-R3",
+          "P1-R1",
+          "P1-R3"
+        ],
+        "acceptance": [
+          "AC-5",
+          "AC-6",
+          "AC-7"
+        ],
+        "taxonomy": [
+          "no_material_relation"
+        ],
+        "architecture": [
+          "AD-01",
+          "Adjudicate"
+        ],
+        "gates": [
+          "GATE-PC-INV",
+          "GATE-PC-FINDING"
+        ]
+      },
+      "profile": {
+        "platform_profile": "codex-fixture/0.1",
+        "rule_set": "agent-doctor-rules/0.1",
+        "compatibility": "compatible"
+      },
+      "modes": {
+        "deterministic": "enabled",
+        "semantic": "enabled",
+        "repair": "read_only"
+      },
+      "boundaries": {
+        "workspace": "/fixture/repo",
+        "selected_regions": [
+          "repo/frontend/button.ts"
+        ],
+        "discovery": [
+          "repo/**"
+        ],
+        "inspection": [
+          "repo/**"
+        ],
+        "semantic_disclosure": [
+          "listed fixture excerpts"
+        ],
+        "modification": [],
+        "consent": "manifest-specific synthetic-content consent"
+      },
+      "preconditions": [
+        "Fresh isolated virtual filesystem",
+        "No runtime trace exists"
+      ],
+      "inputs": {
+        "files": [
+          {
+            "path": "repo/frontend/AGENTS.md",
+            "source_type": "instruction",
+            "content": "For changes under frontend/, run browser tests.\n",
+            "metadata": {},
+            "policy": {
+              "exists": true,
+              "readable": true,
+              "inspection": "allowed",
+              "semantic_disclosure": "allowed",
+              "executable": false
+            }
+          },
+          {
+            "path": "repo/backend/AGENTS.md",
+            "source_type": "instruction",
+            "content": "For changes under backend/, run browser tests.\n",
+            "metadata": {},
+            "policy": {
+              "exists": true,
+              "readable": true,
+              "inspection": "allowed",
+              "semantic_disclosure": "allowed",
+              "executable": false
+            }
+          }
+        ],
+        "generators": [],
+        "configuration": {},
+        "provider": {
+          "kind": "scripted-neutral-provider",
+          "network": "simulated"
+        },
+        "clock": {
+          "now": "2026-08-17T00:00:00Z",
+          "controlled": true
+        },
+        "faults": []
+      },
+      "stimulus": {
+        "contract": "Adjudicate",
+        "steps": [
+          "Freeze the declared scope and profile",
+          "Inventory and preserve source status and locations",
+          "Run deterministic prerequisites before any semantic comparison",
+          "Adjudicate the stated question and seal one canonical result"
+        ]
+      },
+      "oracle": {
+        "question": "Do the sources overlap or duplicate active behavior for the selected file?",
+        "decisive_evidence": [
+          "Directory-scoped applicability",
+          "Selected path is frontend only",
+          "Backend region is disjoint"
+        ],
+        "rationale": "Identical text does not create an active relation in disjoint regions.",
+        "acceptable_uncertainty": [
+          "A cross-directory change would be a different diagnostic unit"
+        ],
+        "counterexample": "Text similarity cannot replace a shared-region witness."
+      },
+      "expected": {
+        "diagnostic": {
+          "check_id": "deterministic.applicability.shared-region",
+          "check_state": "pass",
+          "substantive_labels": [
+            "no_material_relation"
+          ],
+          "validation_qualifiers": [],
+          "severity": "info",
+          "potential_severity": null,
+          "confidence": "high",
+          "severity_confidence_rule": "Severity follows likely impact; confidence follows completeness of decisive evidence and remains independent."
+        },
+        "evidence_kinds": [
+          "observed",
+          "derived"
+        ],
+        "inventory": {
+          "expected_status_counts": {
+            "discovered": 2
+          },
+          "must_include": [
+            "repo/frontend/AGENTS.md",
+            "repo/backend/AGENTS.md"
+          ],
+          "must_exclude": [],
+          "complete": true
+        },
+        "coverage": {
+          "required_families": [
+            "inventory",
+            "adjudication"
+          ],
+          "gaps": [],
+          "run_outcome": "complete"
+        },
+        "outputs": {
+          "terminal": [
+            "Same state, labels, qualifier, severity, confidence, stable IDs, and coverage as the sealed result",
+            "Secret-safe decisive locations or excerpts"
+          ],
+          "markdown": [
+            "All decisive evidence, rationale, uncertainty, prohibited runtime claims, versions, and coverage"
+          ],
+          "json": [
+            "Three axes remain separate",
+            "Full member/evidence references and reproducibility metadata"
+          ],
+          "ci": "policy evaluated only after a valid sealed result"
+        },
+        "operation": {
+          "proposal_state": "not_requested",
+          "apply_state": "not_attempted",
+          "rollback_state": "not_attempted",
+          "files_modified": 0
+        }
+      },
+      "prohibited_outcomes": [
+        "scope_overlap",
+        "behavioral_redundancy from text similarity"
+      ],
+      "cleanup": {
+        "isolation": "Case-local virtual root, provider script, clock, and faults; no shared mutable state",
+        "postconditions": [
+          "Zero fixture writes outside the case root",
+          "No network or provider state survives",
+          "Filesystem and event schedule match the pre-run manifest"
+        ]
+      },
+      "review": {
+        "status": "reviewed",
+        "reviewers": [
+          "stage-02-internal-review",
+          "stage-04-materialization-review"
+        ],
+        "reviewed_at": "2026-08-17"
+      }
+    },
+    {
+      "id": "G-020",
+      "title": "Read failure after a check starts",
+      "schema_version": "agent-doctor-test-scenario/0.1",
+      "fixture_version": "0.1",
+      "level": "system",
+      "case_kind": "error",
+      "test_type": "discovery_inventory",
+      "refs": {
+        "prd": [
+          "P0-R4",
+          "P0-R13"
+        ],
+        "acceptance": [
+          "AC-1",
+          "AC-3"
+        ],
+        "taxonomy": [
+          "error"
+        ],
+        "architecture": [
+          "AD-01",
+          "Adjudicate"
+        ],
+        "gates": [
+          "GATE-PC-INV",
+          "GATE-PC-FINDING"
+        ]
+      },
+      "profile": {
+        "platform_profile": "codex-fixture/0.1",
+        "rule_set": "agent-doctor-rules/0.1",
+        "compatibility": "compatible"
+      },
+      "modes": {
+        "deterministic": "enabled",
+        "semantic": "enabled",
+        "repair": "read_only"
+      },
+      "boundaries": {
+        "workspace": "/fixture/repo",
+        "selected_regions": [
+          "repo/"
+        ],
+        "discovery": [
+          "repo/**"
+        ],
+        "inspection": [
+          "repo/**"
+        ],
+        "semantic_disclosure": [
+          "listed fixture excerpts"
+        ],
+        "modification": [],
+        "consent": "manifest-specific synthetic-content consent"
+      },
+      "preconditions": [
+        "Fresh isolated virtual filesystem",
+        "No runtime trace exists"
+      ],
+      "inputs": {
+        "files": [
+          {
+            "path": "repo/skills/review/SKILL.md",
+            "source_type": "skill_body",
+            "content": "id: review\nreference: references/policy.md\n",
+            "metadata": {},
+            "policy": {
+              "exists": true,
+              "readable": true,
+              "inspection": "allowed",
+              "semantic_disclosure": "allowed",
+              "executable": false
+            }
+          }
+        ],
+        "generators": [],
+        "configuration": {},
+        "provider": {
+          "kind": "scripted-neutral-provider",
+          "network": "simulated"
+        },
+        "clock": {
+          "now": "2026-08-17T00:00:00Z",
+          "controlled": true
+        },
+        "faults": [
+          {
+            "at": "after_inventory_before_metadata_read",
+            "action": "make_unreadable",
+            "target": "repo/skills/review/SKILL.md",
+            "attempts": 1,
+            "retry_policy": "exhausted"
+          }
+        ]
+      },
+      "stimulus": {
+        "contract": "Adjudicate",
+        "steps": [
+          "Freeze the declared scope and profile",
+          "Inventory and preserve source status and locations",
+          "Run deterministic prerequisites before any semantic comparison",
+          "Adjudicate the stated question and seal one canonical result"
+        ]
+      },
+      "oracle": {
+        "question": "Did the started validity check reach a diagnostic conclusion?",
+        "decisive_evidence": [
+          "Source was inventoried",
+          "Check lifecycle is started",
+          "Required metadata read fails after bounded retries"
+        ],
+        "rationale": "This is an execution failure, not a skipped check or a configuration diagnosis.",
+        "acceptable_uncertainty": [
+          "An independent finding completed before the failure may remain"
+        ],
+        "counterexample": "not_run is excluded because the check started; invalid_reference is unsupported because target facts were never obtained."
+      },
+      "expected": {
+        "diagnostic": {
+          "check_id": "deterministic.reference.validity",
+          "check_state": "error",
+          "substantive_labels": [],
+          "validation_qualifiers": [],
+          "severity": null,
+          "potential_severity": null,
+          "confidence": null,
+          "severity_confidence_rule": "error carries no substantive severity or confidence."
+        },
+        "evidence_kinds": [
+          "observed"
+        ],
+        "inventory": {
+          "expected_status_counts": {
+            "unreadable": 1
+          },
+          "must_include": [
+            "repo/skills/review/SKILL.md"
+          ],
+          "must_exclude": [],
+          "complete": true
+        },
+        "coverage": {
+          "required_families": [
+            "inventory",
+            "adjudication"
+          ],
+          "gaps": [
+            "reference validity check failed after start"
+          ],
+          "run_outcome": "complete_with_gaps"
+        },
+        "outputs": {
+          "terminal": [
+            "Same state, labels, qualifier, severity, confidence, stable IDs, and coverage as the sealed result",
+            "Secret-safe decisive locations or excerpts"
+          ],
+          "markdown": [
+            "All decisive evidence, rationale, uncertainty, prohibited runtime claims, versions, and coverage"
+          ],
+          "json": [
+            "Three axes remain separate",
+            "Full member/evidence references and reproducibility metadata"
+          ],
+          "ci": "execution outcome depends on whether the affected family is declared required; never policy success by omission"
+        },
+        "operation": {
+          "proposal_state": "not_requested",
+          "apply_state": "not_attempted",
+          "rollback_state": "not_attempted",
+          "files_modified": 0
+        }
+      },
+      "prohibited_outcomes": [
+        "not_run",
+        "pass",
+        "Invented invalid_reference"
+      ],
+      "cleanup": {
+        "isolation": "Case-local virtual root, provider script, clock, and faults; no shared mutable state",
+        "postconditions": [
+          "Zero fixture writes outside the case root",
+          "No network or provider state survives",
+          "Filesystem and event schedule match the pre-run manifest"
+        ]
+      },
+      "review": {
+        "status": "reviewed",
+        "reviewers": [
+          "stage-02-internal-review",
+          "stage-04-materialization-review"
+        ],
+        "reviewed_at": "2026-08-17"
+      }
+    }
+  ]
+}

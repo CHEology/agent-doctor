@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-doctor.invalid/schema/manual-proposal/0.1",
+  "title": "Agent Doctor non-executable manual proposal",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "proposal_id", "proposal_digest", "result_ref", "selected_case_refs", "mode", "authority", "executable_operations", "manual_actions", "created_from_revisions", "preview", "risks", "verification_plan", "rollback_plan"],
+  "properties": {
+    "schema_version": {"const": "agent-doctor-manual-proposal/0.1"},
+    "proposal_id": {"type": "string", "pattern": "^proposal-[a-f0-9]{24}$"},
+    "proposal_digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+    "result_ref": {"type": "string", "pattern": "^result-[a-f0-9]{24}$"},
+    "selected_case_refs": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^case-[a-f0-9]{24}$"}},
+    "mode": {"const": "manual_only"},
+    "authority": {"const": "none"},
+    "executable_operations": {"type": "array", "items": {"type": "object"}},
+    "manual_actions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["action_ref", "kind", "summary", "bounds"],
+        "properties": {
+          "action_ref": {"type": "string", "pattern": "^action-[a-f0-9]{24}$"},
+          "kind": {"type": "string"},
+          "summary": {"type": "string", "minLength": 1},
+          "bounds": {"type": "object"}
+        }
+      }
+    },
+    "created_from_revisions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["source_ref", "location", "revision"],
+        "properties": {
+          "source_ref": {"type": "string"},
+          "location": {"type": "string"},
+          "revision": {"type": ["string", "null"]}
+        }
+      }
+    },
+    "preview": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+    "risks": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+    "verification_plan": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+    "rollback_plan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["supported", "reason"],
+      "properties": {
+        "supported": {"const": false},
+        "reason": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}

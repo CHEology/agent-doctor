@@ -1,0 +1,282 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-doctor.invalid/schema/result/0.1",
+  "title": "Agent Doctor sealed result graph",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "sealed", "result_id", "run", "scope", "inventory", "claims", "evidence", "checks", "interaction_cases", "finding_groups", "coverage", "next_actions", "diagnostics", "reproducibility"],
+  "properties": {
+    "schema_version": {"const": "agent-doctor-result/0.1"},
+    "sealed": {"type": "boolean"},
+    "result_id": {"$ref": "#/$defs/id"},
+    "run": {"$ref": "#/$defs/run"},
+    "scope": {"$ref": "#/$defs/scope"},
+    "inventory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sources"],
+      "properties": {"sources": {"type": "array", "items": {"$ref": "#/$defs/source"}}}
+    },
+    "claims": {"type": "array", "items": {"$ref": "#/$defs/claim"}},
+    "evidence": {"type": "array", "items": {"$ref": "#/$defs/evidence"}},
+    "checks": {"type": "array", "items": {"$ref": "#/$defs/check"}},
+    "interaction_cases": {"type": "array", "items": {"$ref": "#/$defs/case"}},
+    "finding_groups": {"type": "array", "items": {"$ref": "#/$defs/group"}},
+    "coverage": {"$ref": "#/$defs/coverage"},
+    "next_actions": {"type": "array", "items": {"$ref": "#/$defs/action"}},
+    "diagnostics": {"type": "array", "items": {"type": "object"}},
+    "reproducibility": {"$ref": "#/$defs/reproducibility"}
+  },
+  "$defs": {
+    "id": {"type": "string", "pattern": "^[a-z]+-[a-f0-9]{24}$"},
+    "stringArray": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "nullableSeverity": {"enum": ["critical", "high", "medium", "low", "info", null]},
+    "nullableConfidence": {"enum": ["high", "medium", "low", null]},
+    "state": {"enum": ["pass", "finding", "candidate", "insufficient_evidence", "not_run", "error"]},
+    "label": {"enum": ["semantic_conflict", "scope_overlap", "behavioral_redundancy", "complementarity", "precedence_override", "invalid_reference", "stale_reference", "context_budget_risk", "configuration_risk", "no_material_relation"]},
+    "run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["run_id", "started_at", "completed_at", "outcome", "product_version", "taxonomy_version", "rule_set_version", "normalization_version", "grouping_version", "semantic_contract_version", "platform_profiles", "modes"],
+      "properties": {
+        "run_id": {"type": "string", "minLength": 1},
+        "started_at": {"type": "string", "minLength": 1},
+        "completed_at": {"type": "string", "minLength": 1},
+        "outcome": {"enum": ["complete", "complete_with_gaps", "execution_failed"]},
+        "product_version": {"type": "string", "minLength": 1},
+        "taxonomy_version": {"type": "string", "minLength": 1},
+        "rule_set_version": {"type": "string", "minLength": 1},
+        "normalization_version": {"type": "string", "minLength": 1},
+        "grouping_version": {"type": "string", "minLength": 1},
+        "semantic_contract_version": {"type": "string", "minLength": 1},
+        "platform_profiles": {"$ref": "#/$defs/stringArray"},
+        "modes": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["deterministic", "semantic", "repair"],
+          "properties": {
+            "deterministic": {"const": "enabled"},
+            "semantic": {"enum": ["enabled", "disabled", "unavailable"]},
+            "repair": {"enum": ["read_only", "proposal_only"]}
+          }
+        }
+      }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scope_id", "workspace_identity", "selected_regions", "discovery_boundary", "inspection_boundary", "semantic_disclosure_boundary", "modification_boundary", "exclusions", "project_trust", "platform_profile"],
+      "properties": {
+        "scope_id": {"$ref": "#/$defs/id"},
+        "workspace_identity": {"type": "string"},
+        "selected_regions": {"$ref": "#/$defs/stringArray"},
+        "discovery_boundary": {"type": "object"},
+        "inspection_boundary": {"type": "object"},
+        "semantic_disclosure_boundary": {"type": "object"},
+        "modification_boundary": {"type": "object"},
+        "exclusions": {"type": "array", "items": {"type": "object"}},
+        "project_trust": {"enum": ["trusted", "untrusted", "unknown"]},
+        "platform_profile": {"type": "string", "minLength": 1}
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_id", "type", "location", "status", "revision", "readability", "declared_scope", "effective_scope", "sensitivity", "provenance", "status_reason"],
+      "properties": {
+        "source_id": {"$ref": "#/$defs/id"},
+        "type": {"enum": ["skill_manifest", "skill_body", "instruction", "override", "config", "resource", "script", "other"]},
+        "location": {"type": "string", "minLength": 1},
+        "status": {"enum": ["discovered", "ignored", "shadowed", "truncated", "missing", "unreadable", "excluded"]},
+        "revision": {"type": ["string", "null"]},
+        "readability": {"type": "string"},
+        "declared_scope": {"type": "object"},
+        "effective_scope": {"type": "object"},
+        "sensitivity": {"$ref": "#/$defs/stringArray"},
+        "provenance": {"type": "object"},
+        "status_reason": {"type": "string"}
+      }
+    },
+    "claim": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["claim_id", "source_ref", "kind", "dimension", "modality", "normalized", "excerpt", "qualifiers", "span", "completeness"],
+      "properties": {
+        "claim_id": {"$ref": "#/$defs/id"},
+        "source_ref": {"$ref": "#/$defs/id"},
+        "kind": {"type": "string", "minLength": 1},
+        "dimension": {"type": "string", "minLength": 1},
+        "modality": {"enum": ["required", "forbidden", "preferred", "permitted", "declarative"]},
+        "normalized": {"type": "string"},
+        "excerpt": {"type": "string"},
+        "qualifiers": {"$ref": "#/$defs/stringArray"},
+        "span": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["start_byte", "end_byte", "start_line", "end_line", "start_column", "end_column"],
+          "properties": {
+            "start_byte": {"type": "integer", "minimum": 0},
+            "end_byte": {"type": "integer", "minimum": 0},
+            "start_line": {"type": "integer", "minimum": 1},
+            "end_line": {"type": "integer", "minimum": 1},
+            "start_column": {"type": "integer", "minimum": 1},
+            "end_column": {"type": "integer", "minimum": 1}
+          }
+        },
+        "completeness": {"enum": ["complete", "partial"]}
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["evidence_id", "kind", "producer", "summary", "source_refs", "parent_evidence_refs", "rule_or_provider", "disclosure", "location", "excerpt"],
+      "properties": {
+        "evidence_id": {"$ref": "#/$defs/id"},
+        "kind": {"enum": ["observed", "derived", "inferred", "runtime"]},
+        "producer": {"type": "string", "minLength": 1},
+        "summary": {"type": "string", "minLength": 1},
+        "source_refs": {"$ref": "#/$defs/stringArray"},
+        "parent_evidence_refs": {"$ref": "#/$defs/stringArray"},
+        "rule_or_provider": {"type": "object"},
+        "disclosure": {"enum": ["excerpt", "location_only", "redacted", "withheld"]},
+        "location": {"type": ["string", "null"]},
+        "excerpt": {"type": ["string", "null"]}
+      }
+    },
+    "check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["execution_id", "check_id", "family", "question", "lifecycle", "state", "reason", "evidence_refs", "completeness", "input_revisions"],
+      "properties": {
+        "execution_id": {"$ref": "#/$defs/id"},
+        "check_id": {"type": "string", "minLength": 1},
+        "family": {"type": "string", "minLength": 1},
+        "question": {"type": "string", "minLength": 1},
+        "lifecycle": {"enum": ["not_started", "started", "completed"]},
+        "state": {"$ref": "#/$defs/state"},
+        "reason": {"type": "object"},
+        "evidence_refs": {"$ref": "#/$defs/stringArray"},
+        "completeness": {"enum": ["complete", "partial"]},
+        "input_revisions": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "assessment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["label", "claim_refs", "region_ref", "dimension_ref", "status"],
+      "properties": {
+        "label": {"$ref": "#/$defs/label"},
+        "claim_refs": {"$ref": "#/$defs/stringArray"},
+        "region_ref": {"$ref": "#/$defs/id"},
+        "dimension_ref": {"type": "string", "minLength": 1},
+        "status": {"enum": ["active", "resolved"]}
+      }
+    },
+    "qualifier": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "proposition", "confirm_condition", "refute_condition"],
+      "properties": {
+        "kind": {"const": "runtime_validation_needed"},
+        "proposition": {"type": "string", "minLength": 1},
+        "confirm_condition": {"type": "string", "minLength": 1},
+        "refute_condition": {"type": "string", "minLength": 1}
+      }
+    },
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["case_id", "check_ref", "question", "source_refs", "claim_refs", "region_ref", "region", "dimension_ref", "state", "assessments", "validation_qualifiers", "severity", "potential_severity", "confidence", "evidence_refs", "counterexample", "next_action_refs"],
+      "properties": {
+        "case_id": {"$ref": "#/$defs/id"},
+        "check_ref": {"$ref": "#/$defs/id"},
+        "question": {"type": "string", "minLength": 1},
+        "source_refs": {"$ref": "#/$defs/stringArray"},
+        "claim_refs": {"$ref": "#/$defs/stringArray"},
+        "region_ref": {"$ref": "#/$defs/id"},
+        "region": {"type": "object"},
+        "dimension_ref": {"type": "string", "minLength": 1},
+        "state": {"$ref": "#/$defs/state"},
+        "assessments": {"type": "array", "items": {"$ref": "#/$defs/assessment"}},
+        "validation_qualifiers": {"type": "array", "items": {"$ref": "#/$defs/qualifier"}},
+        "severity": {"$ref": "#/$defs/nullableSeverity"},
+        "potential_severity": {"$ref": "#/$defs/nullableSeverity"},
+        "confidence": {"$ref": "#/$defs/nullableConfidence"},
+        "evidence_refs": {"$ref": "#/$defs/stringArray"},
+        "counterexample": {"type": "object"},
+        "next_action_refs": {"$ref": "#/$defs/stringArray"}
+      }
+    },
+    "group": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["group_id", "member_case_refs", "grouping_rule", "relationship_summary", "relationship_kind"],
+      "properties": {
+        "group_id": {"$ref": "#/$defs/id"},
+        "member_case_refs": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/id"}, "uniqueItems": true},
+        "grouping_rule": {"type": "string", "minLength": 1},
+        "relationship_summary": {"type": "string", "minLength": 1},
+        "relationship_kind": {"enum": ["same_interaction", "dimension_specific"]}
+      }
+    },
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["by_family", "gaps"],
+      "properties": {
+        "by_family": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["family", "attempted", "completed", "not_run", "error", "abstained"],
+            "properties": {
+              "family": {"type": "string"},
+              "attempted": {"type": "integer", "minimum": 0},
+              "completed": {"type": "integer", "minimum": 0},
+              "not_run": {"type": "integer", "minimum": 0},
+              "error": {"type": "integer", "minimum": 0},
+              "abstained": {"type": "integer", "minimum": 0}
+            }
+          }
+        },
+        "gaps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["check_ref", "state", "reason"],
+            "properties": {
+              "check_ref": {"$ref": "#/$defs/id"},
+              "state": {"$ref": "#/$defs/state"},
+              "reason": {"type": "object"}
+            }
+          }
+        }
+      }
+    },
+    "action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["action_id", "kind", "summary", "bounds", "authority"],
+      "properties": {
+        "action_id": {"$ref": "#/$defs/id"},
+        "kind": {"enum": ["manual_repair", "evidence_request", "manual_validation", "informational"]},
+        "summary": {"type": "string", "minLength": 1},
+        "bounds": {"type": "object"},
+        "authority": {"const": "none"}
+      }
+    },
+    "reproducibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["input_revision_manifest", "configuration_digest", "semantic_calls", "canonicalization"],
+      "properties": {
+        "input_revision_manifest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+        "configuration_digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+        "semantic_calls": {"type": "array", "items": {"type": "object"}},
+        "canonicalization": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}

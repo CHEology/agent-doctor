@@ -1,0 +1,119 @@
+{
+  "profile_schema_version": "agent-doctor-platform-profile/0.1",
+  "profile_id": "codex-docs-2026-08-17",
+  "profile_version": "0.1.0",
+  "ecosystem": "codex",
+  "status": "reviewed",
+  "captured_at": "2026-08-17",
+  "compatibility": {
+    "status": "compatible",
+    "kind": "official-documentation-snapshot",
+    "platform_versions": [
+      "Codex clients whose documented behavior matches the 2026-08-17 sources"
+    ],
+    "refusal_rule": "Unknown, stale, or incompatible behavior cannot support a version-dependent deterministic conclusion."
+  },
+  "provenance": [
+    {
+      "source_id": "openai.codex.agents-md.2026-08-17",
+      "uri": "https://learn.chatgpt.com/docs/agent-configuration/agents-md",
+      "retrieved_at": "2026-08-17",
+      "assertions": [
+        "Global discovery chooses AGENTS.override.md before AGENTS.md and uses only the first non-empty file at that level.",
+        "Project discovery walks from the project root to the current working directory and selects at most one override, base, or configured fallback file per directory.",
+        "Project instruction files are concatenated root-to-current-directory and closer guidance appears later and overrides earlier guidance.",
+        "The combined project instruction size stops at project_doc_max_bytes, whose documented default is 32 KiB."
+      ]
+    },
+    {
+      "source_id": "openai.codex.config-basics.2026-08-17",
+      "uri": "https://learn.chatgpt.com/docs/config-file/config-basic",
+      "retrieved_at": "2026-08-17",
+      "assertions": [
+        "Configuration precedence is CLI overrides, trusted project config from root to current directory with closest winning, selected profile file, user config, system config, then built-in defaults.",
+        "Untrusted projects skip project-scoped .codex configuration layers."
+      ]
+    },
+    {
+      "source_id": "openai.codex.build-skills.2026-08-17",
+      "uri": "https://learn.chatgpt.com/docs/build-skills",
+      "retrieved_at": "2026-08-17",
+      "assertions": [
+        "A skill directory requires SKILL.md with name and description and may contain scripts, references, assets, and agents/openai.yaml.",
+        "Repository skills are scanned from .agents/skills in every directory from the current working directory to the repository root; user skills are under $HOME/.agents/skills and admin skills under /etc/codex/skills.",
+        "Duplicate skill names are not merged and both may appear in selectors.",
+        "Symlinked skill folders are followed while scanning.",
+        "The initial skill list includes name, description, and path and uses at most 2 percent of the model context or 8000 characters when the context window is unknown; descriptions may be shortened and skills may be omitted with a warning."
+      ]
+    }
+  ],
+  "rules": {
+    "instructions": {
+      "global": {
+        "root_kind": "codex_home",
+        "selection": ["AGENTS.override.md", "AGENTS.md"],
+        "first_non_empty_only": true
+      },
+      "project": {
+        "walk": "project_root_to_selected_directory",
+        "selection": ["AGENTS.override.md", "AGENTS.md", "configured_fallbacks"],
+        "one_per_directory": true,
+        "merge_order": "root_to_selected_directory",
+        "closer_guidance_overrides_earlier": true,
+        "default_max_bytes": 32768,
+        "max_bytes_unit": "bytes"
+      }
+    },
+    "skills": {
+      "required_file": "SKILL.md",
+      "required_metadata": ["name", "description"],
+      "repo_directory": ".agents/skills",
+      "repo_walk": "selected_directory_to_project_root",
+      "user_directory": ".agents/skills",
+      "admin_directory": "/etc/codex/skills",
+      "follow_directory_symlinks": true,
+      "duplicate_name_behavior": "both_appear_not_merged",
+      "initial_list": {
+        "fields": ["name", "description", "path"],
+        "maximum_context_fraction": 0.02,
+        "unknown_context_character_budget": 8000,
+        "shortens_descriptions_first": true,
+        "may_omit_entries": true,
+        "exact_serialization_known": false,
+        "exact_omission_order_known": false
+      }
+    },
+    "configuration": {
+      "precedence_high_to_low": [
+        "cli_override",
+        "trusted_project_closest",
+        "selected_profile",
+        "user",
+        "system",
+        "built_in"
+      ],
+      "project_filename": ".codex/config.toml",
+      "user_filename": "config.toml",
+      "system_filename": "/etc/codex/config.toml",
+      "project_requires_trust": true,
+      "unknown_field_policy": "abstain_without_a_cited_schema"
+    },
+    "references": {
+      "supported_forms": ["markdown_relative_link", "backticked_relative_path", "reference_key"],
+      "base": "declaring_source_directory",
+      "supported_variables": [],
+      "outside_inspection_root": "invalid_without_outside_read",
+      "unknown_form": "insufficient_evidence"
+    },
+    "unknown_behavior": "abstain_or_refuse"
+  },
+  "review": {
+    "status": "reviewed",
+    "reviewers": [
+      "stage-05-official-source-review",
+      "stage-05-contract-preservation-review"
+    ],
+    "reviewed_at": "2026-08-17",
+    "notes": "Only assertions present in the cited official OpenAI documentation snapshot are materialized. Runtime selection and causality remain explicitly unsupported."
+  }
+}
