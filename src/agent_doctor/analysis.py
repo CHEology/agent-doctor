@@ -1660,7 +1660,7 @@ def _semantic_coverage(state: _PipelineState, request: AnalysisRequest) -> None:
                 {
                     claim_ref
                     for relation in relations
-                    for role in ("analyst_a", "analyst_b", "judge")
+                    for role in ("analyst_a", "analyst_b")
                     for claim_ref in relation[role]["claim_refs"]
                 }
             )

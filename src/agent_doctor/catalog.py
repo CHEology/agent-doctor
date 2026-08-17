@@ -700,7 +700,6 @@ def _semantic_contract_fixture() -> tuple[dict[str, Any], dict[str, Any]]:
         "analyst_a_answer_id": answer["answer_id"],
         "analyst_b_answer_id": peer_answer["answer_id"],
         "source_refs": source_refs,
-        "claim_refs": claim_refs,
         "selected_label": "semantic_conflict",
         "dimension": "question_policy",
         "disposition": "corroborated_consensus",
@@ -714,7 +713,7 @@ def _semantic_contract_fixture() -> tuple[dict[str, Any], dict[str, Any]]:
         },
     }
     judge = {
-        "schema_version": "agent-doctor-semantic-judge-response/0.4",
+        "schema_version": "agent-doctor-semantic-judge-response/0.5",
         "manifest_digest": manifest["manifest_digest"],
         "provider": "codex-desktop",
         "model": manifest["model"],
@@ -723,7 +722,7 @@ def _semantic_contract_fixture() -> tuple[dict[str, Any], dict[str, Any]]:
         "limitations": ["No runtime evidence."],
     }
     response = {
-        "schema_version": "agent-doctor-semantic-panel-response/0.4",
+        "schema_version": "agent-doctor-semantic-panel-response/0.5",
         "manifest_digest": manifest["manifest_digest"],
         "provider": "codex-desktop",
         "model": manifest["model"],

@@ -143,6 +143,10 @@ compatible recommendation. A structurally valid but absent, label-mismatched,
 or otherwise incompatible recommendation is recorded as discarded and replaced
 by the generic bounded validation/evidence action; it does not erase otherwise
 valid semantic relationship evidence.
+The judge does not repeat analyst `claim_refs`: it binds to the frozen question,
+both validated answer IDs, exact sources/handles, and dimension. Local lineage
+derives the claim set from the two immutable analyst answers, eliminating a
+redundant model-copy field without accepting or rewriting an invalid citation.
 
 Maintenance freshness is implemented only where evidence can decide it. An
 explicit consumer/target schema match passes; an explicit incompatibility is a

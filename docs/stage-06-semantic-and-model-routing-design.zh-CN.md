@@ -204,6 +204,8 @@ qualification 身份失效。
    建议选择与 disposition 使用嵌套 schema 联合类型，使 `selected_from=none` 在结构上只能
    配对 `disposition=not_applicable`；结构合法但与标签不兼容的建议由本地丢弃，既不能使
    已独立校验的关系失效，也不能提升该关系；
+   judge 的 claim 证据链由本地从两份已校验 analyst 答案派生，不再让 judge 重复抄写
+   claim ID；问题、answer、来源、句柄与维度的精确 join 仍是强制条件；
 10. 三个模型角色的陈述都只能作为不可变 `inferred` 证据；
 11. 本地裁决器必须先确认双分析者共识、仲裁者确认、反例已关闭、没有缺失证据、建议与标签兼容，再负责
     适用性、分类法、状态、标签、限定符、严重度、置信度、去重和分组；共同适用区域

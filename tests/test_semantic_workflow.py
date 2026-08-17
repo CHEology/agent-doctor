@@ -162,7 +162,6 @@ def _panel_response(
                 "analyst_a_answer_id": answer["answer_id"],
                 "analyst_b_answer_id": peer_answer["answer_id"],
                 "source_refs": question["source_refs"],
-                "claim_refs": question["claim_refs"],
                 "selected_label": None if challenged else label,
                 "dimension": question["dimension"],
                 "disposition": (
@@ -216,7 +215,7 @@ def _panel_response(
         "limitations": ["No runtime behavior was observed."],
     }
     judge = {
-        "schema_version": "agent-doctor-semantic-judge-response/0.4",
+        "schema_version": "agent-doctor-semantic-judge-response/0.5",
         "manifest_digest": manifest["manifest_digest"],
         "provider": "codex-desktop",
         "model": manifest["model"],
@@ -225,7 +224,7 @@ def _panel_response(
         "limitations": ["No runtime behavior was observed."],
     }
     combined = {
-        "schema_version": "agent-doctor-semantic-panel-response/0.4",
+        "schema_version": "agent-doctor-semantic-panel-response/0.5",
         "manifest_digest": manifest["manifest_digest"],
         "provider": "codex-desktop",
         "model": manifest["model"],
@@ -319,7 +318,7 @@ def test_stale_adjudication_contract_is_rejected_with_recomputed_digest(
 ) -> None:
     _, _, package = _package(tmp_path)
     manifest = json.loads(json.dumps(package["manifest"]))
-    manifest["semantic_contract_version"] = "agent-doctor-semantic/0.6"
+    manifest["semantic_contract_version"] = "agent-doctor-semantic/0.7"
     manifest.pop("manifest_digest")
     manifest["manifest_digest"] = digest(manifest)
     assert (
@@ -644,7 +643,7 @@ def test_codex_failure_prefers_structured_error_over_stderr_warning() -> None:
 def test_rejected_completed_panel_retains_three_safe_call_digests(tmp_path: Path) -> None:
     _, _, package = _package(tmp_path)
     analyst_a, analyst_b, judge, _ = _panel_response(package["manifest"])
-    judge["judgments"][0]["claim_refs"] = ["claim-not-frozen"]
+    judge["judgments"][0]["source_refs"] = ["source-not-frozen"]
 
     def runner(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
         schema = Path(command[command.index("--output-schema") + 1]).name
@@ -744,7 +743,7 @@ def test_manifest_minimization_prioritizes_late_routing_boundaries(tmp_path: Pat
     )
     disclosed = "\n".join(item["excerpt"] for item in alpha_handle["claims"])
     assert "Route direct subagent work without panels" in disclosed
-    assert package["manifest"]["schema_version"].endswith("/0.8")
+    assert package["manifest"]["schema_version"].endswith("/0.9")
 
 
 def test_provider_cannot_set_product_severity(tmp_path: Path) -> None:

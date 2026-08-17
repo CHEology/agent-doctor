@@ -240,6 +240,9 @@ replace it.
    `selected_from=none` mechanically implies `disposition=not_applicable`.
    A structurally valid but incompatible recommendation is discarded locally;
    it cannot invalidate or promote the independently validated relationship.
+   Judge claim lineage is derived locally from the two validated analyst
+   answers; the judge does not repeat claim IDs, while exact question, answer,
+   source, handle, and dimension joins remain mandatory.
 10. Record all three model statements only as immutable `inferred` evidence.
 11. Let the local adjudicator require corroborated analyst consensus, judge
     confirmation, closed counterexamples, no missing evidence, and a recommendation/label
