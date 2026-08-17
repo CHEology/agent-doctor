@@ -9,7 +9,7 @@ from typing import Any, Mapping, Sequence
 from .canonical import stable_id
 
 
-MAX_PANEL_QUESTIONS = 32
+MAX_PANEL_QUESTIONS = 16
 MAX_QUESTIONS_PER_PAIR = 4
 
 DIMENSION_PRIORITY = (

@@ -131,6 +131,12 @@ becomes a semantic label, severity, confidence, or finding. The one-shot request
 manifest; standalone invocation must name that exact digest. Secret-bearing
 sources and all script/executable bodies are excluded.
 
+The MVP emits at most 16 questions in one three-context panel. Every analyst
+prompt includes a compact per-question identity table for exact source, handle,
+claim, and dimension copying. Additional eligible questions are sealed as an
+explicit coverage gap, never as a pass; users can narrow to exact Skill pairs
+for complete pair-specific coverage.
+
 Maintenance freshness is implemented only where evidence can decide it. An
 explicit consumer/target schema match passes; an explicit incompatibility is a
 `stale_reference` finding; incomplete version facts abstain. File modification

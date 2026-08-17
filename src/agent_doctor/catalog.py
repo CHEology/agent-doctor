@@ -652,7 +652,7 @@ def _semantic_contract_fixture() -> tuple[dict[str, Any], dict[str, Any]]:
         ],
         "semantic_panel": {"questions": [question]},
         "retention_and_cache": {"provider_retention": "unknown"},
-        "prompt_contract_version": "agent-doctor-semantic-panel-prompt/0.4",
+        "prompt_contract_version": "agent-doctor-semantic-panel-prompt/0.5",
         "taxonomy_version": "0.1",
     }
     manifest = dict(unsigned)

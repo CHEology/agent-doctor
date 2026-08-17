@@ -276,6 +276,21 @@ def test_semantic_manifest_is_minimized_bounded_and_excludes_scripts(tmp_path: P
     assert manifest["qualification"]["release_qualified"] is False
 
 
+def test_stale_prompt_contract_is_rejected_even_with_a_recomputed_digest(
+    tmp_path: Path,
+) -> None:
+    _, _, package = _package(tmp_path)
+    manifest = json.loads(json.dumps(package["manifest"]))
+    manifest["prompt_contract_version"] = (
+        "agent-doctor-semantic-panel-prompt/0.4"
+    )
+    manifest.pop("manifest_digest")
+    manifest["manifest_digest"] = digest(manifest)
+    assert "unsupported semantic prompt contract" in validate_manifest_digest(
+        manifest
+    )
+
+
 def test_semantic_auto_scope_honors_exact_exclusion(tmp_path: Path) -> None:
     workspace, locations = _workspace(tmp_path)
     third = workspace / ".agents/skills/gamma/SKILL.md"
@@ -480,10 +495,11 @@ def test_large_semantic_scope_discloses_only_handles_used_by_bounded_questions()
         purpose="Bounded large-scope fixture.",
     )
     manifest = package["manifest"]
-    assert len(manifest["semantic_panel"]["questions"]) == 32
-    assert len(manifest["content_handles"]) == 64
-    assert len(manifest["source_selection"]["question_limit_omitted_source_refs"]) == 6
-    assert manifest["exclusions"]["counts"]["question_limit_omission"] == 6
+    assert len(manifest["semantic_panel"]["questions"]) == 16
+    assert manifest["semantic_panel"]["coverage"]["question_limit"] == 16
+    assert len(manifest["content_handles"]) == 32
+    assert len(manifest["source_selection"]["question_limit_omitted_source_refs"]) == 38
+    assert manifest["exclusions"]["counts"]["question_limit_omission"] == 38
     assert validate_manifest_digest(manifest) == []
 
 
@@ -636,6 +652,11 @@ def test_blind_analyst_and_judge_prompts_preserve_boundaries(tmp_path: Path) -> 
     assert peer_prompt.index(beta) < peer_prompt.index(alpha)
     assert "untrusted data" in analyst_prompt
     assert "blind independent analysts" in peer_prompt
+    assert '"schema_version":"agent-doctor-analyst-answer-identity/0.1"' in analyst_prompt
+    first_question = package["manifest"]["semantic_panel"]["questions"][0]
+    assert first_question["question_id"] in analyst_prompt
+    assert all(item in analyst_prompt for item in first_question["claim_refs"])
+    assert '"claim_refs_allowed_only"' in analyst_prompt
     assert analyst_a["summary"] in judge_prompt
     assert analyst_b["summary"] in judge_prompt
     assert "untrusted data" in judge_prompt

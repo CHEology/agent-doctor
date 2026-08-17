@@ -208,6 +208,9 @@ replace it.
    where semantic evidence can add value. Retrieval scores select the bounded
    panel only; they are never labels, severity, confidence, or evidence that a
    relationship exists. Equal scores are source-balanced deterministically.
+   One three-context MVP panel emits at most 16 questions; every omission is an
+   explicit coverage gap, and exact pair narrowing is available for complete
+   pair-specific coverage.
 3. Resolve a reviewed, fresh model decision. Require account availability and
    product qualification for a release-qualified path.
 4. Ask the content broker for the smallest decisive excerpts. Exclude raw
@@ -224,6 +227,8 @@ replace it.
    contexts with no direct filesystem access and no credentials in payloads or
    logs. They are blind to one another, receive canonical/reversed source order,
    and each answers every frozen pair/dimension question exactly once.
+   Each analyst also receives a compact identity table whose source, handle,
+   allowed-claim, and dimension fields are a closed copy contract.
 8. Validate both analyst responses, then invoke a third judge in a fresh context.
    It sees both completed answers, searches for counterexamples/missing evidence,
    and records consensus, resolved disagreement, challenge, or insufficiency.
