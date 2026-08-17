@@ -547,7 +547,7 @@ class ResultBuilder:
             for item in checks
             if item.state in {CheckState.NOT_RUN.value, CheckState.ERROR.value, CheckState.INSUFFICIENT_EVIDENCE.value}
         ]
-        graph = {
+        graph: dict[str, Any] = {
             "schema_version": RESULT_SCHEMA_VERSION,
             "sealed": False,
             "result_id": "pending",
@@ -584,7 +584,7 @@ class ResultBuilder:
                 "canonicalization": "agent-doctor-canonical-json/0.1+sha256",
             },
         }
-        stable_graph = dict(graph)
+        stable_graph: dict[str, Any] = dict(graph)
         stable_graph["run"] = {
             key: value
             for key, value in graph["run"].items()

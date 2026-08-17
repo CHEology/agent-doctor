@@ -523,9 +523,9 @@ def _renderer_assertions(case: dict[str, Any], samples: dict[str, dict[str, Any]
             terminal = render_terminal(graph)
         return {"renderer_failure_isolated": canonical_json(graph) == before and bool(terminal)}
     if case_id == "S-OUT-010":
-        before = len(graph["interaction_cases"])
+        durable_before = len(graph["interaction_cases"])
         evaluate_ci(graph, CIPolicy(fail_at_or_above="high", required_families=("inventory", "adjudication")))
-        return {"durable_findings_not_filtered": len(graph["interaction_cases"]) == before}
+        return {"durable_findings_not_filtered": len(graph["interaction_cases"]) == durable_before}
     localized = copy.deepcopy(graph)
     localized["interaction_cases"][0]["question"] = "本地化问题"
     return {"localization_semantics_stable": semantic_projection(localized) == semantic_projection(graph)}

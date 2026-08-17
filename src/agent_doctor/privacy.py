@@ -41,6 +41,21 @@ def redact_secrets(text: str) -> RedactionResult:
     return RedactionResult(redacted, tuple(sorted(set(categories))), redacted != text)
 
 
+def redact_local_paths(text: str) -> RedactionResult:
+    """Replace the current absolute home prefix without exposing its value."""
+
+    home = str(Path.home().resolve(strict=False))
+    if not home or home == "/":
+        return RedactionResult(text, (), False)
+    pattern = re.compile(re.escape(home) + r"(?=/|$)")
+    redacted = pattern.sub("user:/", text)
+    return RedactionResult(
+        redacted,
+        ("absolute_home_path",) if redacted != text else (),
+        redacted != text,
+    )
+
+
 def safe_revision(text: str) -> tuple[str, tuple[str, ...]]:
     filtered = redact_secrets(text)
     # A digest of a low-entropy secret can disclose it by dictionary attack. When
@@ -50,12 +65,14 @@ def safe_revision(text: str) -> tuple[str, tuple[str, ...]]:
 
 
 def minimize_excerpt(text: str, *, limit: int = 240) -> tuple[str, tuple[str, ...], str]:
-    filtered = redact_secrets(text.strip())
-    excerpt = filtered.text
-    disclosure = "redacted" if filtered.changed else "excerpt"
+    secret_filtered = redact_secrets(text.strip())
+    path_filtered = redact_local_paths(secret_filtered.text)
+    excerpt = path_filtered.text
+    categories = tuple(sorted(set(secret_filtered.categories) | set(path_filtered.categories)))
+    disclosure = "redacted" if secret_filtered.changed or path_filtered.changed else "excerpt"
     if len(excerpt) > limit:
         excerpt = excerpt[: max(0, limit - 1)] + "…"
-    return excerpt, filtered.categories, disclosure
+    return excerpt, categories, disclosure
 
 
 def is_within(path: Path, root: Path) -> bool:

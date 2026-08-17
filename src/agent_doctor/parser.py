@@ -38,7 +38,7 @@ class ParsedSource:
     body_start_line: int
 
 
-def _unquote(value: str) -> str:
+def _unquote(value: str) -> Any:
     value = value.strip()
     if len(value) >= 2 and value[0] == value[-1] == '"':
         try:
@@ -66,8 +66,8 @@ def parse_front_matter(content: str) -> tuple[dict[str, Any], int, list[ParseDia
     if not lines or lines[0].strip() != "---":
         # Fixture and legacy sources may expose loose metadata. It is observed
         # but does not satisfy the official required-front-matter contract.
-        metadata: dict[str, Any] = {}
-        diagnostics = [ParseDiagnostic("skill.front-matter.missing", "SKILL.md has no YAML front matter", 1, "warning")]
+        loose_metadata: dict[str, Any] = {}
+        loose_diagnostics = [ParseDiagnostic("skill.front-matter.missing", "SKILL.md has no YAML front matter", 1, "warning")]
         for line_number, line in enumerate(lines[:40], start=1):
             match = KEY_VALUE.match(line)
             if match and match.group(1).lower() in {"id", "name", "description", "mode", "reference", "required_policy_schema"}:
@@ -77,7 +77,7 @@ def parse_front_matter(content: str) -> tuple[dict[str, Any], int, list[ParseDia
                     or raw_value.count("{") != raw_value.count("}")
                     or (raw_value.startswith(('"', "'")) and not raw_value.endswith(raw_value[0]))
                 ):
-                    diagnostics.append(
+                    loose_diagnostics.append(
                         ParseDiagnostic(
                             "skill.metadata.malformed-value",
                             f"unterminated metadata value for {match.group(1)}",
@@ -85,8 +85,8 @@ def parse_front_matter(content: str) -> tuple[dict[str, Any], int, list[ParseDia
                             "error",
                         )
                     )
-                metadata[match.group(1).lower()] = _unquote(raw_value)
-        return metadata, 1, diagnostics, "partial"
+                loose_metadata[match.group(1).lower()] = _unquote(raw_value)
+        return loose_metadata, 1, loose_diagnostics, "partial"
 
     closing = next((index for index, line in enumerate(lines[1:], start=1) if line.strip() == "---"), None)
     if closing is None:
@@ -199,11 +199,21 @@ def _dimensions(text: str) -> list[tuple[str, str]]:
         dimensions.append(("statement", "general"))
     # Keep order, but never duplicate a dimension for one source line.
     seen: set[str] = set()
-    return [(kind, dimension) for kind, dimension in dimensions if not (dimension in seen or seen.add(dimension))]
+    unique: list[tuple[str, str]] = []
+    for kind, dimension in dimensions:
+        if dimension in seen:
+            continue
+        seen.add(dimension)
+        unique.append((kind, dimension))
+    return unique
 
 
 def _normalize_text(text: str) -> str:
     return re.sub(r"\s+", " ", text.strip()).casefold()
+
+
+def _qualifiers(text: str) -> tuple[str, ...]:
+    return tuple(dict.fromkeys(match.group(0).casefold() for match in QUALIFIER_PATTERN.finditer(text)))
 
 
 def _claims_from_lines(source_ref: str, content: str, *, first_line: int = 1, completeness: str = "complete") -> list[Claim]:
@@ -214,7 +224,7 @@ def _claims_from_lines(source_ref: str, content: str, *, first_line: int = 1, co
             continue
         excerpt, _, _ = minimize_excerpt(line, limit=400)
         normalized = _normalize_text(excerpt)
-        qualifiers = tuple(match.group(0).casefold() for match in QUALIFIER_PATTERN.finditer(excerpt))
+        qualifiers = _qualifiers(excerpt)
         modality = _modality(excerpt)
         span = _line_span(content, offset, line)
         for kind, dimension in _dimensions(excerpt):
@@ -264,7 +274,8 @@ def parse_config(source_ref: str, content: str) -> ParsedSource:
         return ParsedSource(source_ref, {}, (), (diagnostic,), "partial", 1)
     claims: list[Claim] = []
     for key, value in _flatten_toml(metadata):
-        raw_normalized = f"{key}={json.dumps(value, ensure_ascii=False, sort_keys=True)}"
+        safe_key, _, _ = minimize_excerpt(key, limit=200)
+        raw_normalized = f"{safe_key}={json.dumps(value, ensure_ascii=False, sort_keys=True)}"
         normalized, _, _ = minimize_excerpt(raw_normalized, limit=400)
         identity = {"source": source_ref, "kind": "configuration", "normalized": normalized}
         claims.append(
@@ -272,7 +283,7 @@ def parse_config(source_ref: str, content: str) -> ParsedSource:
                 claim_id=stable_id("claim", identity),
                 source_ref=source_ref,
                 kind="configuration",
-                dimension=f"configuration:{key}",
+                dimension=f"configuration:{safe_key}",
                 modality="declarative",
                 normalized=normalized,
                 excerpt=normalized,
@@ -303,7 +314,7 @@ def parse_source(source_ref: str, source_type: str, content: str) -> ParsedSourc
                     modality="declarative",
                     normalized=_normalize_text(excerpt),
                     excerpt=excerpt,
-                    qualifiers=tuple(match.group(0).casefold() for match in QUALIFIER_PATTERN.finditer(excerpt)),
+                    qualifiers=_qualifiers(excerpt),
                     span={"start_line": 1, "end_line": max(1, body_start - 1), "start_column": 1, "end_column": 1, "start_byte": 0, "end_byte": 0},
                     completeness=completeness,
                 ),

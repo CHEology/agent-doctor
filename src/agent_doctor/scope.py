@@ -81,7 +81,14 @@ def plan_scope(options: ScopeOptions, profile: dict) -> ResolvedScope:
     discovery_roots = ["workspace://"]
     inspection_roots = [workspace]
     if options.include_user:
-        discovery_roots.extend(["user://.codex", "user://.agents/skills"])
+        discovery_roots.extend(
+            [
+                "user://.codex",
+                "user://.agents/skills",
+                "user://.codex/skills",
+                "user://.codex/plugins/cache",
+            ]
+        )
         inspection_roots.extend([codex_home, Path.home() / ".agents" / "skills"])
     if options.include_system:
         discovery_roots.extend(["system://etc/codex/config.toml", "system://etc/codex/skills"])

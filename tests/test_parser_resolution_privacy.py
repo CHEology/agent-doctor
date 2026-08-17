@@ -19,6 +19,16 @@ def test_parser_preserves_modalities_qualifiers_and_inclusive_columns() -> None:
     assert first.span["end_column"] == len("Must run tests.")
 
 
+def test_repeated_qualifiers_are_canonicalized_without_duplicates() -> None:
+    parsed = parse_source(
+        "source-test",
+        "instruction",
+        "If input is present, continue only if validation succeeds.\n",
+    )
+    assert parsed.claims
+    assert all(item.qualifiers == ("if", "only") for item in parsed.claims)
+
+
 def test_parser_preserves_crlf_unicode_byte_and_display_spans() -> None:
     parsed = parse_source("source-test", "instruction", "标题\r\n必须运行测试。\r\n")
     claim = next(item for item in parsed.claims if item.span["start_line"] == 2)
@@ -122,6 +132,23 @@ def test_secret_redaction_and_script_exclusion(tmp_path: Path) -> None:
     )
     assert result.status == "withheld"
     assert result.content is None
+
+
+def test_absolute_home_paths_are_redacted_from_claims_and_config_dimensions() -> None:
+    home = str(Path.home().resolve(strict=False))
+    instruction = parse_source(
+        "source-home",
+        "instruction",
+        f"Read {home}/private/policy.md before review.\n",
+    )
+    config = parse_source(
+        "source-config",
+        "config",
+        f'["{home}/private/skill"]\nenabled = true\n',
+    )
+    rendered = repr((instruction.claims, config.claims))
+    assert home not in rendered
+    assert "user://private" in rendered
 
 
 def test_bounded_reader_keeps_valid_unicode_prefix_when_limit_splits_scalar(tmp_path: Path) -> None:

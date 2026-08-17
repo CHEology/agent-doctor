@@ -232,7 +232,10 @@ def _read_and_parse(state: _PipelineState) -> None:
         )
         state.source_evidence[current.source_id] = source_evidence
 
-        if current.status == SourceStatus.UNREADABLE.value and candidate.status == SourceStatus.DISCOVERED.value:
+        if current.status == SourceStatus.UNREADABLE.value and candidate.status in {
+            SourceStatus.DISCOVERED.value,
+            SourceStatus.UNREADABLE.value,
+        }:
             _add_case(
                 state,
                 check_id="deterministic.source.readability",
@@ -279,15 +282,108 @@ def _read_and_parse(state: _PipelineState) -> None:
     state.candidates = updated
 
     inventory_evidence = tuple(sorted(state.source_evidence.values()))
-    state.builder.add_check(
-        check_id="deterministic.inventory.complete",
-        family="inventory",
-        question="Were all supported candidates in the frozen discovery scope retained in inventory?",
-        state=CheckState.PASS.value,
-        reason={"code": "inventory_retained", "source_count": len(state.candidates)},
-        evidence_refs=inventory_evidence,
-        input_revisions=tuple(sorted(item.revision or item.status for item in state.candidates)),
-    )
+    coverage_gaps = [
+        item
+        for item in state.candidates
+        if bool((item.provenance or {}).get("coverage_gap"))
+    ]
+    if coverage_gaps:
+        source_refs = tuple(sorted(item.source_id for item in coverage_gaps))
+        evidence_refs = tuple(state.source_evidence[source_ref] for source_ref in source_refs)
+        has_unreadable = any(item.status == SourceStatus.UNREADABLE.value for item in coverage_gaps)
+        _add_case(
+            state,
+            check_id="deterministic.inventory.complete",
+            family="inventory",
+            question="Were all supported candidates in the frozen discovery scope retained in inventory?",
+            check_state=CheckState.ERROR.value if has_unreadable else CheckState.INSUFFICIENT_EVIDENCE.value,
+            reason={
+                "code": "inventory_coverage_gap",
+                "gap_count": len(coverage_gaps),
+                "statuses": sorted({item.status for item in coverage_gaps}),
+                "expected": True,
+            },
+            source_refs=source_refs,
+            dimension="inventory_coverage",
+            confidence=None if has_unreadable else "high",
+            evidence_refs=evidence_refs,
+            counterexample={
+                "considered": "The omitted portion may contain no additional Skills.",
+                "excluded": False,
+                "basis": "The bounded discovery operation could not establish that proposition.",
+            },
+            completeness="partial",
+        )
+    else:
+        state.builder.add_check(
+            check_id="deterministic.inventory.complete",
+            family="inventory",
+            question="Were all supported candidates in the frozen discovery scope retained in inventory?",
+            state=CheckState.PASS.value,
+            reason={"code": "inventory_retained", "source_count": len(state.candidates)},
+            evidence_refs=inventory_evidence,
+            input_revisions=tuple(sorted(item.revision or item.status for item in state.candidates)),
+        )
+
+
+def _local_observed_applicability_checks(state: _PipelineState) -> None:
+    """Keep local cache/store presence separate from runtime activation."""
+
+    grouped: dict[str, list[SourceCandidate]] = {}
+    for candidate in state.candidates:
+        if candidate.source_type != SourceType.SKILL_BODY.value or candidate.status != SourceStatus.DISCOVERED.value:
+            continue
+        if (candidate.effective_scope or {}).get("state") != "unknown":
+            continue
+        if (candidate.provenance or {}).get("inventory_basis") != "local_filesystem_observation":
+            continue
+        scope_kind = str((candidate.effective_scope or {}).get("scope_kind", "local_observed_skill"))
+        grouped.setdefault(scope_kind, []).append(candidate)
+
+    for scope_kind, candidates in sorted(grouped.items()):
+        source_refs = tuple(sorted(item.source_id for item in candidates))
+        evidence_refs = tuple(state.source_evidence[source_ref] for source_ref in source_refs)
+        action = state.builder.add_next_action(
+            kind="evidence_request",
+            summary=(
+                f"Compare the {len(candidates)} locally observed {scope_kind} Skill artifacts with an active "
+                "Codex skill catalogue before treating them as runtime-selected."
+            ),
+            bounds={
+                "source_refs": list(source_refs),
+                "operation": "manual_catalogue_comparison",
+                "runtime_causality": False,
+                "automatic_apply": False,
+            },
+        )
+        _add_case(
+            state,
+            check_id="deterministic.skill.local-observed-applicability",
+            family="applicability",
+            question=f"Are the locally observed {scope_kind} Skill artifacts active in the current Codex runtime?",
+            check_state=CheckState.INSUFFICIENT_EVIDENCE.value,
+            reason={
+                "code": "local_inventory_does_not_prove_runtime_activation",
+                "observed_count": len(candidates),
+                "runtime_selection_observed": False,
+                "expected": True,
+            },
+            source_refs=source_refs,
+            region={
+                "paths": ["observed-scope://" + re.sub(r"[^a-z0-9]+", "-", scope_kind.casefold()).strip("-")],
+                "intersection": "unknown",
+                "runtime_observed": False,
+            },
+            dimension="applicability",
+            confidence="high",
+            evidence_refs=evidence_refs,
+            counterexample={
+                "considered": "Every cached or locally stored artifact may be active.",
+                "excluded": False,
+                "basis": "Static filesystem presence does not establish current runtime selection.",
+            },
+            next_action_refs=(action,),
+        )
 
 
 def _metadata_checks(state: _PipelineState) -> None:
@@ -410,6 +506,11 @@ def _duplicate_checks(state: _PipelineState) -> None:
     by_name: dict[str, list[tuple[SourceCandidate, ParsedSource, str]]] = {}
     for candidate in state.candidates:
         if candidate.source_type != SourceType.SKILL_BODY.value or candidate.status != SourceStatus.DISCOVERED.value:
+            continue
+        if (candidate.effective_scope or {}).get("state") != "applicable":
+            # Supplemental Codex-home and plugin-cache artifacts are useful
+            # inventory, but cannot support a runtime duplicate/selection
+            # conclusion until applicability is independently established.
             continue
         parsed = state.parsed.get(candidate.source_id)
         content = state.snapshots.get(candidate.source_id)
@@ -807,12 +908,13 @@ def _configuration_precedence_checks(state: _PipelineState) -> dict[str, Any]:
         excerpt="CLI > trusted project closest > profile > user > system > built-in",
     )
     for key in unknown_keys:
+        safe_key, _, _ = minimize_excerpt(key, limit=200)
         source_refs = tuple(sorted(item.source_ref for item in all_values[key]))
         parents = tuple(state.source_evidence[source_ref] for source_ref in source_refs)
         derived = state.builder.add_evidence(
             kind=EvidenceKind.DERIVED.value,
             producer=f"precedence-resolver@{RULE_SET_VERSION}",
-            summary=f"Effective value for {key} is unknown because project trust is unknown.",
+            summary=f"Effective value for {safe_key} is unknown because project trust is unknown.",
             source_refs=source_refs,
             parent_evidence_refs=parents + (profile_evidence,),
             rule_or_provider={"rule_id": "codex.config.trust-gated-precedence@0.1"},
@@ -821,23 +923,24 @@ def _configuration_precedence_checks(state: _PipelineState) -> dict[str, Any]:
         action = state.builder.add_next_action(
             kind="evidence_request",
             summary="Rerun with --project-trust trusted or --project-trust untrusted after verifying Codex trust state.",
-            bounds={"key": key, "accepted_values": ["trusted", "untrusted"]},
+            bounds={"key": safe_key, "accepted_values": ["trusted", "untrusted"]},
         )
         _add_case(
             state,
             check_id="deterministic.configuration.precedence",
             family="precedence",
-            question=f"Which configuration value governs {key}?",
+            question=f"Which configuration value governs {safe_key}?",
             check_state=CheckState.INSUFFICIENT_EVIDENCE.value,
             reason={"code": "project_trust_unknown", "missing_evidence": "Codex project trust state", "expected": True},
             source_refs=source_refs,
-            dimension=f"configuration:{key}",
+            dimension=f"configuration:{safe_key}",
             confidence="high",
             evidence_refs=parents + (profile_evidence, derived),
             counterexample={"considered": "The closest project file wins.", "excluded": False, "basis": "Project layers are skipped when untrusted, and trust was not supplied."},
             next_action_refs=(action,),
         )
     for key, values in all_values.items():
+        safe_key, _, _ = minimize_excerpt(key, limit=200)
         effective_values = [item for item in values if item.applicability == "applicable"]
         if len(effective_values) < 2 or key not in winners:
             continue
@@ -847,7 +950,7 @@ def _configuration_precedence_checks(state: _PipelineState) -> dict[str, Any]:
                 claim.claim_id
                 for source_ref in source_refs
                 for claim in state.parsed[source_ref].claims
-                if claim.dimension == f"configuration:{key}"
+                if claim.dimension == f"configuration:{safe_key}"
             )
         )
         parents = tuple(state.source_evidence[source_ref] for source_ref in source_refs)
@@ -855,7 +958,7 @@ def _configuration_precedence_checks(state: _PipelineState) -> dict[str, Any]:
         derived = state.builder.add_evidence(
             kind=EvidenceKind.DERIVED.value,
             producer=f"precedence-resolver@{RULE_SET_VERSION}",
-            summary=f"Configuration key {key} is governed by {winner.source_ref} under the reviewed layer order.",
+            summary=f"Configuration key {safe_key} is governed by {winner.source_ref} under the reviewed layer order.",
             source_refs=source_refs,
             parent_evidence_refs=parents + (profile_evidence,),
             rule_or_provider={"rule_id": "codex.config.layer-precedence@0.1"},
@@ -866,13 +969,13 @@ def _configuration_precedence_checks(state: _PipelineState) -> dict[str, Any]:
             state,
             check_id="deterministic.configuration.precedence",
             family="precedence",
-            question=f"Which effective source governs configuration key {key}?",
+            question=f"Which effective source governs configuration key {safe_key}?",
             check_state=CheckState.PASS.value,
             reason={"code": "precedence_resolved", "winner_source_ref": winner.source_ref},
             source_refs=source_refs,
             claim_refs=claim_refs,
             region=region,
-            dimension=f"configuration:{key}",
+            dimension=f"configuration:{safe_key}",
             labels=("precedence_override",),
             severity="info",
             confidence="high",
@@ -957,6 +1060,7 @@ def _skill_budget_abstention(state: _PipelineState) -> None:
         for item in state.candidates
         if item.source_type == SourceType.SKILL_BODY.value
         and item.status == SourceStatus.DISCOVERED.value
+        and (item.effective_scope or {}).get("state") == "applicable"
         and item.source_id in state.parsed
     ]
     if not skills:
@@ -1102,6 +1206,7 @@ def analyze(request: AnalysisRequest, *, clock: Any | None = None, run_id: str |
     state.candidates = discover(scope, profile)
     _read_and_parse(state)
     _metadata_checks(state)
+    _local_observed_applicability_checks(state)
     _duplicate_checks(state)
     _reference_checks(state)
     effective_config = _configuration_precedence_checks(state)

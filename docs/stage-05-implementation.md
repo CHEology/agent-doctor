@@ -34,6 +34,12 @@ TOML parsing, bounded filesystem access, canonical JSON, and cross-platform CLI
 packaging. `setuptools` builds the package and `pytest` is the development test
 runner; neither is imported by the product runtime.
 
+“Offline-first” names this deterministic safety floor; it does not make the
+intended product purely script-based. Model reasoning remains an optional layer
+for semantic comparisons, with exact disclosure consent and local final
+adjudication. That production semantic bridge is proposed for Stage 06 and is
+not exposed by this CLI slice.
+
 The package publishes the `agent-doctor` console command through
 `pyproject.toml`. The product result schema is
 `src/agent_doctor/data/schema/result.schema.json`.
@@ -61,6 +67,17 @@ after independently confirming the Codex project trust state. The default is
 `unknown`, which preserves the configuration source but abstains where its
 effectiveness is decisive. User and system sources are excluded unless
 `--include-user` or `--include-system` is selected.
+
+`--include-user` also inventories locally observed `~/.codex/skills` artifacts
+and manifest-declared Skills under `~/.codex/plugins/cache`. These paths are
+useful evidence for the ChatGPT desktop/Codex installation on the current
+machine, but they are not documented local discovery roots in the selected
+official profile. Their `effective_scope.state` is therefore `unknown`, their
+provenance says runtime selection is unobserved, and their presence produces an
+applicability abstention plus `complete_with_gaps`. Cached plugin versions never
+become active duplicate-installation findings merely because their files exist.
+The documented `$HOME/.agents/skills` behavior remains independently modeled as
+applicable.
 
 CI policies are evaluated only after schema and sealing validation. Process
 exit codes are:
@@ -151,3 +168,20 @@ Tests cover canonicalization, schemas and invariants, parsing and byte/display
 spans, reference scope and symlinks, privacy, profile compatibility, frozen
 scope, full pipeline sealing, deterministic identities, renderers, CI failure
 semantics, the twenty goldens, the applicable expanded catalog, and CLI output.
+
+## Repository orchestration and continuous review
+
+The repository now includes a project Skill at
+`.agents/skills/agent-doctor/SKILL.md`. It lets Codex run and explain the safe
+terminal projection, while explicitly refusing to reinterpret static evidence,
+read undisclosed personal Skill bodies as product evidence, or apply repairs.
+It is an orchestration/explanation layer, not the missing production semantic
+adapter.
+
+`make check` is the stable local gate. GitHub Actions repeats unit tests across
+supported Python versions, type checking, Stage 04 contract runs, a
+repository-only CI scan, and package smoke testing on pull requests, `main`,
+weekly schedule, and manual dispatch. An optional same-repository Codex review
+workflow is disabled by default and remains advisory/read-only after explicit
+repository configuration. Hosted workflows never inventory a developer's user
+home.

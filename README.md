@@ -1,38 +1,94 @@
 # Agent Doctor
 
-Agent Doctor is a Codex-first diagnostic tool for finding conflicts, ambiguity,
-redundancy, and configuration problems across agent skills and instructions.
+Agent Doctor is a Codex-first, offline-first diagnostic system for Skill and
+agent-configuration quality. It combines a deterministic local engine with a
+model-assisted review layer while keeping evidence, authority, and privacy
+boundaries explicit.
 
-The project has completed its product, taxonomy, and architecture definition.
-A Stage 04 test-strategy, executable-ready fixture, measurement, and quality-
-gate review draft is now available. No product implementation code, packaging,
-or release work has begun.
+Stage 05 now provides a working Python 3.12 CLI, a sealed result graph, four
+output projections, the executable Stage 04 corpus, and proposal/manual-only
+repair guidance. Stage 06 is a proposed roadmap for consented semantic
+analysis, longitudinal comparison, and measured qualification; it is not yet a
+release claim.
 
-## Product requirements
+## What “offline-first” means
 
-- [Canonical PRD (English)](docs/product-requirements.md)
-- [完整中文 PRD](docs/product-requirements.zh-CN.md)
+Offline-first does **not** mean “the product must be only scripts” or “a model
+is never useful.” It means the safe base layer can inventory, parse, resolve,
+and preserve evidence without a network call. A model can then reason over an
+explicitly disclosed, minimized evidence set, while a local adjudicator retains
+the final say.
 
-## Diagnostic taxonomy and golden examples
+```mermaid
+flowchart LR
+    A["Local deterministic engine"] --> B["Sealed evidence graph"]
+    B --> C["Terminal / Markdown / JSON / CI"]
+    B --> D["Codex explanation layer"]
+    E["Future consented semantic adapter"] --> F["Validated inferred evidence"]
+    F --> B
+```
 
-- [Canonical taxonomy and golden examples (English)](docs/conflict-taxonomy-and-golden-examples.md)
-- [完整中文分类法与黄金样例](docs/conflict-taxonomy-and-golden-examples.zh-CN.md)
+The current repository-level Agent Doctor Skill uses Codex to run and explain
+the deterministic summary. It does not inspect undisclosed personal Skill
+bodies or turn model opinions into findings. The full semantic adapter and
+local adjudication bridge remain Stage 06 work.
 
-## Detailed design and architecture
+## Quick start
 
-- [Canonical detailed design and architecture (English)](docs/detailed-design-and-architecture.md)
-- [完整中文详细设计与架构](docs/detailed-design-and-architecture.zh-CN.md)
+```sh
+python3 -m pip install -e .
+agent-doctor scan .
+```
 
-## Test scenarios and quality gates
+Useful commands:
 
-- [Canonical Stage 04 test specification (English)](docs/test-scenarios-and-quality-gates.md)
-- [完整中文测试场景与质量门禁](docs/test-scenarios-and-quality-gates.zh-CN.md)
-- [Versioned Stage 04 test artifacts](test-spec/README.md)
+```sh
+# A repository-only diagnostic suitable for local use or CI
+agent-doctor scan . --project-trust trusted --format terminal
 
-## Project sequence
+# Include user-level and locally observed Codex/plugin Skill inventory
+# without claiming those files were selected at runtime
+agent-doctor scan . --include-user --format terminal
 
-1. Product requirements
-2. Conflict taxonomy and golden examples
-3. Detailed design and architecture
-4. Test scenarios and quality gates
-5. MVP implementation
+# Validate and execute the reviewed contracts
+agent-doctor spec run test-spec/fixtures/golden-v0.1.json --repetitions 3 --summary
+agent-doctor spec run test-spec/scenarios/stage-04-catalog-v0.1.json --summary
+```
+
+Install development dependencies and run the same local gate as CI:
+
+```sh
+python3 -m pip install -e '.[dev]'
+make check
+```
+
+## Repository structure
+
+```text
+.agents/skills/agent-doctor/  Codex orchestration and safe explanation workflow
+.github/                      CI, optional Codex review, ownership, PR policy
+docs/                         Approved contracts, implementation notes, roadmap
+src/agent_doctor/             Deterministic engine and sealed result model
+test-spec/                    Versioned Stage 04 schemas, fixtures, and catalog
+tests/                        Executable unit, integration, and contract tests
+```
+
+The documentation index and status map live in [docs/README.md](docs/README.md).
+Development and review rules are in [CONTRIBUTING.md](CONTRIBUTING.md), and the
+automation design is in
+[docs/architecture-and-automation.md](docs/architecture-and-automation.md).
+
+## Continuous workflow
+
+Every pull request runs tests across supported Python versions, type checking,
+the Stage 04 golden and expanded suites, a repository-only Agent Doctor scan,
+and a wheel build/install smoke test. The same deterministic gate runs weekly,
+and Dependabot proposes dependency and Action updates.
+
+An optional Codex PR review workflow is included but disabled by default. It is
+advisory, read-only, restricted to same-repository pull requests, and never
+receives local user-home Skill content. See the automation guide for the exact
+secret, variable, branch-protection, and review setup.
+
+No accuracy, usefulness, calibration, or release target is claimed until the
+Stage 04 measurement protocol has produced sufficient evidence.

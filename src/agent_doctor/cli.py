@@ -6,7 +6,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any, Never, Sequence
 
 from .analysis import AnalysisRequest, analyze
 from .ci import CIPolicy, evaluate_ci, exit_code as ci_exit_code
@@ -24,7 +24,7 @@ EXIT_USAGE = 64
 
 
 class ArgumentParser(argparse.ArgumentParser):
-    def error(self, message: str) -> None:
+    def error(self, message: str) -> Never:
         self.print_usage(sys.stderr)
         self.exit(EXIT_USAGE, f"agent-doctor: error: {message}\n")
 
@@ -42,7 +42,14 @@ def build_parser() -> argparse.ArgumentParser:
     scan = subparsers.add_parser("scan", help="scan a local workspace and project one sealed result")
     scan.add_argument("workspace", nargs="?", default=".", help="workspace root (default: current directory)")
     scan.add_argument("--selected", help="selected file or directory inside the workspace")
-    scan.add_argument("--include-user", action="store_true", help="include selected user Codex configuration and Skills")
+    scan.add_argument(
+        "--include-user",
+        action="store_true",
+        help=(
+            "include user Codex configuration, documented user Skills, and supplemental local "
+            "Codex-home/plugin-cache Skill inventory (runtime activation remains unobserved)"
+        ),
+    )
     scan.add_argument("--include-system", action="store_true", help="include selected /etc/codex sources")
     scan.add_argument("--project-trust", choices=("trusted", "untrusted", "unknown"), default="unknown")
     scan.add_argument("--profile", type=Path, help="reviewed local Codex platform-profile JSON")
