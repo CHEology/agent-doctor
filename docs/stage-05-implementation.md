@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-Stage 05 implements the approved Stage 01–04 contracts as an offline-first
+Stage 05 implements the approved Stage 01–04 contracts as a local-first
 local CLI. The implementation is a reviewable vertical slice, not release or
 qualification evidence.
 
@@ -34,11 +34,12 @@ TOML parsing, bounded filesystem access, canonical JSON, and cross-platform CLI
 packaging. `setuptools` builds the package and `pytest` is the development test
 runner; neither is imported by the product runtime.
 
-“Offline-first” names this deterministic safety floor; it does not make the
-intended product purely script-based. Model reasoning is an optional Stage 06
-extension for semantic comparisons, with exact disclosure consent and local
-final adjudication. The Stage 05 deterministic floor remains independently
-usable when that extension is disabled, unavailable, unconsented, or fails.
+“Local-first” names this deterministic safety floor; it does not make the
+intended product purely script-based. Semantic coverage is enabled by default,
+while provider disclosure remains an exact-manifest Stage 06 boundary with
+local final adjudication. The deterministic floor remains independently usable
+when semantic coverage is explicitly disabled, unavailable, not invoked, or
+fails.
 
 The package publishes the `agent-doctor` console command through
 `pyproject.toml`. The product result schema is
@@ -106,20 +107,50 @@ selected environment match the documented snapshot.
 
 ## Semantic and repair boundaries
 
-Semantic analysis remains optional. The Stage 06 extension now exposes
-separate `semantic prepare`, `semantic invoke`, and `semantic finalize`
-commands. Preparation calls no model and produces an exact manifest containing
+Semantic coverage is enabled by default and can be disabled explicitly with
+`--semantic-mode disabled`. `semantic run` performs preparation, two blind
+parallel analyst calls, a later fresh judge call, and local finalization in one
+explicitly requested operation. The Stage 06 extension also retains separate
+`semantic prepare`, `semantic invoke`, and `semantic finalize` commands for an
+inspect-and-confirm workflow. Preparation calls no model and produces an exact manifest containing
 the provider, model/effort, purpose, selected minimized claim handles,
-exclusions, retention/cache statement, contract versions, and digest. A new
-affirmative consent must name that digest. Secret-bearing sources and all
-script/executable bodies are excluded.
+exclusions, retention/cache statement, contract versions, and digest. With no
+`--source`, the bounded planner considers discovered non-inapplicable Skills;
+repeatable `--source` and `--exclude-source` selectors provide exact narrowing.
+A resolved scope with fewer than two Skills is a valid not-applicable result,
+not an execution failure: the CLI seals the deterministic graph, writes a
+semantic status artifact, and starts zero provider calls. It never widens an
+explicitly narrowed scope merely to manufacture a comparison.
+A versioned deterministic retrieval plan first preserves trigger and local
+routing-boundary evidence (for example route/delegate/never/only/without clauses
+and their adjacent claim lines), then prioritizes lexically relevant
+pair/dimension questions and source-balances equal scores. This prevents early
+generic prose from consuming the minimized claim budget before a later negative
+trigger or delegation rule. Retrieval metadata is selection-only and never
+becomes a semantic label, severity, confidence, or finding. The one-shot request authorizes only its immediately generated
+manifest; standalone invocation must name that exact digest. Secret-bearing
+sources and all script/executable bodies are excluded.
 
-Invocation uses the signed-in Codex Desktop account in an ephemeral empty
-working directory, ignores user/project rules, requests tool/web/app disabling,
-and rejects observed tool activity. It does not need an OpenAI API key.
-Responses must use the closed schema and cite disclosed handles. Accepted
+Maintenance freshness is implemented only where evidence can decide it. An
+explicit consumer/target schema match passes; an explicit incompatibility is a
+`stale_reference` finding; incomplete version facts abstain. File modification
+time alone never establishes either freshness or staleness.
+
+Each of the three invocations uses the signed-in Codex Desktop account in a
+separate ephemeral empty working directory, ignores user/project rules, requests
+tool/web/app disabling, and rejects observed tool activity. It does not need an
+OpenAI API key. Analysts A/B are blind to one another and view sources in
+canonical/reversed order; the judge starts only after both validate. Responses
+must use closed schemas and cite disclosed handles. Accepted
 model statements remain `inferred`; state, independent labels, applicability
 qualifiers, severity, confidence, grouping, and sealing are decided locally.
+Human projections make that boundary auditable: the terminal view orders
+findings/candidates by severity, shows the three highest-priority items and up
+to two representative lowest-priority items, includes bounded cited source
+sentences, panel rationale and counterexample state, and states exact omitted
+counts. Markdown and JSON retain the complete cited detail. Planned but
+unanswered semantic questions are reported only as pending coverage, never as
+diagnosed risks.
 The adapter/model/prompt has not completed Stage 04 qualification, so this
 developmental path supports no accuracy, calibration, usefulness, or release
 claim.
@@ -192,7 +223,8 @@ pytest -q
 
 Tests cover canonicalization, schemas and invariants, parsing and byte/display
 spans, reference scope and symlinks, privacy, profile compatibility, frozen
-scope, semantic disclosure/consent/citation/authority boundaries, local
+scope, semantic disclosure/authorization/citation/authority boundaries, parallel
+blind-analysis and judge-ordering boundaries, local
 semantic adjudication, full pipeline sealing, deterministic identities,
 renderers, CI failure semantics, the twenty goldens, the applicable expanded
 catalog, and CLI output.
@@ -201,10 +233,11 @@ catalog, and CLI output.
 
 The repository now includes a project Skill at
 `.agents/skills/agent-doctor/SKILL.md`. It lets Codex run and explain the safe
-terminal projection and consented semantic sequence, while explicitly refusing
+terminal projection and manifest-bound semantic sequence, while explicitly refusing
 to reinterpret static evidence, read undisclosed personal Skill bodies as
-product evidence, or apply repairs. It requires fresh digest-specific consent
-before every provider invocation.
+product evidence, or apply repairs. Comprehensive diagnosis uses the one-shot
+semantic run by default; standalone invocation still requires fresh exact-digest
+confirmation.
 
 `make check` is the stable local gate. GitHub Actions repeats unit tests across
 supported Python versions, type checking, Stage 04 contract runs, a

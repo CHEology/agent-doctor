@@ -18,6 +18,25 @@ CODE_SPAN = re.compile(r"`([^`\n]+)`")
 REFERENCE_KEY = re.compile(r"(?im)^\s*(?:reference|resource)\s*:\s*([^\s#]+)")
 REQUIRED_SCHEMA = re.compile(r"(?im)^\s*required_policy_schema\s*:\s*['\"]?([A-Za-z0-9_.-]+)")
 TARGET_SCHEMA = re.compile(r"(?im)^\s*schema\s*:\s*['\"]?([A-Za-z0-9_.-]+)")
+OPTIONAL_REFERENCE_CUE = re.compile(
+    r"(?:\boptional\b|\bif\s+(?:it\s+is\s+)?(?:available|present|readable)\b|"
+    r"\bwhen\s+available\b|可选|如(?:果)?可用|若(?:能读|可读|存在|可用)|"
+    r"只要[^。；;\n]{0,40}(?:能读|可读|存在|可用)|"
+    r"(?:想|如需|若要)[^。；;\n]{0,40}(?:看|了解|查看|确认|处理))",
+    re.IGNORECASE,
+)
+SINGLE_FILE_FALLBACK = re.compile(
+    r"(?:\bsingle[- ]file\b[^.\n]{0,80}\b(?:fallback|mode|installation)\b|"
+    r"\bfallback\b[^.\n]{0,80}\bsingle[- ]file\b|"
+    r"单文件[^。；;\n]{0,60}(?:兜底|退化|安装|模式)|"
+    r"本文件[^。；;\n]{0,30}(?:单独|独立)[^。；;\n]{0,20}兜底|"
+    r"只给(?:了)?\s*`?SKILL\.md`?[^。；;\n]{0,40}(?:兜底|退化))",
+    re.IGNORECASE,
+)
+FALLBACK_TARGET = re.compile(
+    r"(?:\.?/)?(?:references|evals)/[A-Za-z0-9._/-]*",
+    re.IGNORECASE,
+)
 
 
 @dataclass(frozen=True)
@@ -26,6 +45,8 @@ class ReferenceDeclaration:
     line: int
     required: bool
     source_ref: str
+    optional: bool = False
+    optional_basis: str | None = None
 
 
 @dataclass(frozen=True)
@@ -100,8 +121,40 @@ def _code_span_has_reference_context(prefix: str) -> bool:
 
 def extract_references(source_ref: str, content: str) -> tuple[ReferenceDeclaration, ...]:
     declarations: dict[tuple[str, int], ReferenceDeclaration] = {}
+    lines = content.splitlines()
+    fallback_contracts: list[tuple[int, tuple[str, ...]]] = []
+    for fallback_line, value in enumerate(lines, start=1):
+        if not SINGLE_FILE_FALLBACK.search(value):
+            continue
+        targets = tuple(
+            sorted(
+                {
+                    match.group(0).lstrip("./")
+                    for match in FALLBACK_TARGET.finditer(value)
+                }
+            )
+        )
+        fallback_contracts.append((fallback_line, targets))
+
+    def fallback_applies(raw: str, line_number: int) -> bool:
+        normalized = raw.lstrip("./")
+        if not normalized.startswith(("references/", "evals/")):
+            return False
+        for fallback_line, targets in fallback_contracts:
+            if targets:
+                if any(
+                    normalized == target
+                    or (target.endswith("/") and normalized.startswith(target))
+                    for target in targets
+                ):
+                    return True
+                continue
+            if abs(fallback_line - line_number) <= 1:
+                return True
+        return False
+
     fence: str | None = None
-    for line_number, line in enumerate(content.splitlines(), start=1):
+    for line_number, line in enumerate(lines, start=1):
         stripped = line.lstrip()
         marker = stripped[:3]
         if marker in {"```", "~~~"}:
@@ -137,7 +190,24 @@ def extract_references(source_ref: str, content: str) -> tuple[ReferenceDeclarat
                 raw = _local_reference_token(match.group(1))
                 if raw is None:
                     continue
-                declarations[(raw, line_number)] = ReferenceDeclaration(raw, line_number, required, source_ref)
+                line_optional = bool(OPTIONAL_REFERENCE_CUE.search(line))
+                fallback_optional = fallback_applies(raw, line_number)
+                optional = line_optional or fallback_optional
+                optional_basis = (
+                    "explicit optional/availability qualifier on the declaration line"
+                    if line_optional
+                    else "explicit single-file fallback contract in the declaring Skill"
+                    if fallback_optional
+                    else None
+                )
+                declarations[(raw, line_number)] = ReferenceDeclaration(
+                    raw,
+                    line_number,
+                    required,
+                    source_ref,
+                    optional,
+                    optional_basis,
+                )
     return tuple(declarations[key] for key in sorted(declarations, key=lambda item: (item[1], item[0])))
 
 
@@ -272,20 +342,45 @@ def _display_target(path: Path, workspace: Path) -> str:
         return redact_secrets("outside://" + PurePosixPath(path.name).as_posix()).text
 
 
-def explicit_version_mismatch(source_content: str, target_content: str) -> tuple[bool, str | None]:
+def explicit_version_compatibility(
+    source_content: str, target_content: str
+) -> tuple[str, str]:
+    """Evaluate only an explicit schema compatibility contract.
+
+    Timestamps and undeclared notions of "latest" are intentionally ignored.
+    """
+
     required = REQUIRED_SCHEMA.search(source_content)
     actual = TARGET_SCHEMA.search(target_content)
-    if not required or not actual:
-        return False, None
+    if not required:
+        return "no_contract", "the declaring source states no required policy schema"
+    if not actual:
+        return "insufficient_evidence", "the target states no schema for the declared requirement"
     required_value, actual_value = required.group(1), actual.group(1)
+    if actual_value == required_value:
+        return (
+            "compatible",
+            f"target schema {actual_value} matches required schema {required_value}",
+        )
     explicit_incompatibility = re.search(
         rf"not\s+compatible\s+with\s+schema\s+{re.escape(required_value)}\b",
         target_content,
         re.IGNORECASE,
     )
-    if actual_value != required_value and explicit_incompatibility:
-        return True, f"target schema {actual_value} explicitly rejects required schema {required_value}"
-    return False, None
+    if explicit_incompatibility:
+        return (
+            "incompatible",
+            f"target schema {actual_value} explicitly rejects required schema {required_value}",
+        )
+    return (
+        "insufficient_evidence",
+        f"target schema {actual_value} differs from required schema {required_value} without an explicit compatibility statement",
+    )
+
+
+def explicit_version_mismatch(source_content: str, target_content: str) -> tuple[bool, str | None]:
+    status, reason = explicit_version_compatibility(source_content, target_content)
+    return status == "incompatible", reason if status == "incompatible" else None
 
 
 @dataclass(frozen=True)

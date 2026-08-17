@@ -20,7 +20,7 @@ class ScopeOptions:
     include_user: bool = False
     include_system: bool = False
     project_trust: str = "unknown"
-    semantic_mode: str = "disabled"
+    semantic_mode: str = "enabled"
     semantic_manifest_digest: str | None = None
 
 
@@ -109,7 +109,9 @@ def plan_scope(options: ScopeOptions, profile: dict) -> ResolvedScope:
         "eligible": (
             []
             if options.semantic_mode == "disabled"
-            else ["explicitly selected minimized Skill claim excerpts"]
+            else [
+                "minimized Skill claim excerpts selected explicitly or by the bounded auto planner"
+            ]
         ),
         "manifest_digest": options.semantic_manifest_digest,
         "external_network": bool(options.semantic_manifest_digest),

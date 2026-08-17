@@ -1,22 +1,23 @@
 # Agent Doctor
 
-Agent Doctor is a Codex-first, offline-first diagnostic system for Skill and
+Agent Doctor is a Codex-first, local-first diagnostic system for Skill and
 agent-configuration quality. It combines a deterministic local engine with a
 model-assisted review layer while keeping evidence, authority, and privacy
 boundaries explicit.
 
 Stage 05 now provides a working Python 3.12 CLI, a sealed result graph, four
 output projections, the executable Stage 04 corpus, and proposal/manual-only
-repair guidance. Stage 06 now adds an opt-in Codex Desktop semantic exchange:
-exact minimized disclosure, digest-bound consent, isolated analyst and critic
-turns, closed citations, constrained manual recommendations, local final
+repair guidance. Stage 06 now enables semantic coverage by default and adds a
+bounded Codex Desktop semantic exchange: exact minimized disclosure,
+digest-bound execution, two blind parallel analysts, a fresh-context judge,
+closed citations, constrained manual recommendations, local final
 adjudication, and the same sealed result graph. This path is developmental and
 unqualified; longitudinal comparison and measured qualification remain roadmap
 work.
 
-## What “offline-first” means
+## What “local-first” means
 
-Offline-first does **not** mean “the product must be only scripts” or “a model
+Local-first does **not** mean “the product must be only scripts” or “a model
 is never useful.” It means the safe base layer can inventory, parse, resolve,
 and preserve evidence without a network call. A model can then reason over an
 explicitly disclosed, minimized evidence set, while a local adjudicator retains
@@ -27,18 +28,23 @@ flowchart LR
     A["Local deterministic engine"] --> B["Sealed evidence graph"]
     B --> C["Human terminal / Markdown / JSON / CI"]
     B --> D["Codex explanation layer"]
-    E["Consented Codex analyst"] --> F["Fresh-context critic"]
-    F --> G["Validated inferred evidence"]
-    G --> B
+    E["Blind analyst A"] --> G["Fresh-context judge"]
+    F["Blind analyst B"] --> G
+    G --> H["Validated inferred evidence"]
+    H --> B
 ```
 
-The repository-level Agent Doctor Skill runs the deterministic summary and,
-only after an exact disclosure manifest is approved, can orchestrate semantic
-prepare, invoke, and finalize. It never treats model output as authority:
+The repository-level Agent Doctor Skill runs the complete bounded semantic
+workflow by default for an explicit comprehensive diagnosis request. That
+one-run operation generates and records an exact disclosure manifest and binds
+all three calls to its digest; `semantic prepare` / `invoke` / `finalize` remain
+available as an inspect-and-confirm advanced workflow. It never treats model
+output as authority:
 citations are validated, evidence remains inferred, and local rules decide the
-diagnostic axes and whether a bounded recommendation is compatible. The critic
-sees reversed source order and actively searches for a counterexample; model
-agreement still does not become proof. Signed-in Codex Desktop use does not
+diagnostic axes and whether a bounded recommendation is compatible. The two
+analysts cannot see one another, receive canonical and reversed source order,
+and the judge must expose disagreement; model agreement still does not become
+proof. Signed-in Codex Desktop use does not
 require an OpenAI API key; provider retention remains governed by the user's
 account terms.
 
@@ -62,6 +68,15 @@ agent-doctor scan . --project-trust trusted --format debug
 # without claiming those files were selected at runtime
 agent-doctor scan . --include-user --format terminal
 
+# Opt out for a deterministic-only run
+agent-doctor scan . --semantic-mode disabled --format terminal
+
+# Complete semantic diagnosis: two blind analysts, one judge, local sealing
+agent-doctor semantic run . --include-user --artifact-dir build/semantic-run
+
+# If exact narrowing leaves fewer than two Skills, the relationship panel is
+# recorded as not applicable and no provider call starts.
+
 # Validate and execute the reviewed contracts
 agent-doctor spec run test-spec/fixtures/golden-v0.1.json --repetitions 3 --summary
 agent-doctor spec run test-spec/scenarios/stage-04-catalog-v0.1.json --summary
@@ -72,8 +87,13 @@ agent-doctor model resolve --capability semantic.reasoning_quality_first --as-of
 # Execute the Stage 06 routing contract (not provider qualification)
 agent-doctor model spec --summary
 
-# Prepare an exact semantic manifest without calling a model
-agent-doctor semantic prepare . --include-user --source SOURCE_LOCATION
+# Prepare without a model call. With no --source, the bounded planner
+# considers discovered non-inapplicable Skills.
+agent-doctor semantic prepare . --include-user
+
+# Narrow or exclude exact Skill locations when desired
+agent-doctor semantic prepare . --include-user \
+  --source SOURCE_A --source SOURCE_B --exclude-source SOURCE_C
 
 # After reviewing the package, invoke and finalize with its exact digest
 agent-doctor semantic invoke semantic-package.json --consent-digest sha256:EXACT

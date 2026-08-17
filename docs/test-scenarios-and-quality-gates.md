@@ -28,8 +28,11 @@ and contracts, not a runner or product code.
 The following remain binding:
 
 - diagnosis is read-only by default and deterministic diagnosis is offline;
-- semantic analysis is optional, disclosed, minimized, and locally
-  adjudicated;
+- semantic coverage is enabled by default and may be disabled or narrowed; an
+  explicit comprehensive diagnosis runs two blind analysts plus a judge under
+  one exact manifest, while provider evidence remains minimized and locally
+  adjudicated; fewer than two exactly selected Skills produces a sealed
+  not-applicable result with zero provider calls rather than silent widening;
 - static evidence never proves runtime Skill selection or causality;
 - check state, substantive label, and validation qualifier are independent;
 - unknown, withheld, disabled, or failed work cannot become `pass`;
@@ -141,7 +144,7 @@ Every case explicitly contains:
 | Identity | Stable ID, title, schema/fixture version, level, polarity/kind, and test type. |
 | Traceability | PRD, acceptance, taxonomy, architecture, and gate references. |
 | Rule context | Platform profile, rule set, and compatible/unknown/stale/incompatible status. |
-| Modes and boundaries | Deterministic, semantic, and repair modes; selected region; separate discovery, inspection, semantic-disclosure, and modification boundaries; exact consent statement. |
+| Modes and boundaries | Deterministic, semantic, and repair modes; selected region; separate discovery, inspection, semantic-disclosure, and modification boundaries; exact one-run or standalone manifest authorization. |
 | Setup and input | Preconditions, synthetic virtual files and policies, precise generators, configuration, provider script, controlled clock, and scheduled faults. |
 | Stimulus | Named component contract plus ordered steps. |
 | Oracle | One question, decisive evidence, rationale, acceptable uncertainty, and strongest counterexample. |
@@ -168,7 +171,7 @@ language, runner, storage database, hash, or assertion library.
 | L1 parser/normalizer | `ReadSource`, `ParseAndNormalize` | Same bytes/version produce equivalent claims and exact source spans; modality, exclusions, and original text survive. Parser does not decide semantic relations. |
 | L2 discovery/resolution | `PlanScope`, `Inventory`, `ResolveReference`, `ResolveApplicability`, profile registry | Complete inventory, separate scopes, declaring-source-relative paths, versioned precedence/budget/schema rules. No guessed platform behavior or out-of-scope read. |
 | L3 deterministic rules | `RunDeterministicCheck` | Observed facts plus named compatible rules produce reproducible results offline. No model calls or pass on partial prerequisites. |
-| L4 semantic boundary | `BuildSemanticDisclosure`, `RunSemanticCheck`, semantic coordinator and adapter | Exact consent manifest, minimized handles, response schema/citations, inferred provenance, provider lifecycle. Provider cannot assign final state/severity or authority. |
+| L4 semantic boundary | `BuildSemanticDisclosure`, `RunSemanticCheck`, semantic coordinator and adapter | Exact manifest authorization, two truly parallel blind analyst contexts, a later fresh judge, minimized handles, closed joins/citations, inferred provenance, and provider lifecycle. Provider cannot assign final state/severity or authority. |
 | L5 local adjudication | `Adjudicate`, counterexample, abstention, confidence | Ordered taxonomy procedure and exact claim/region/dimension key. Adjudicator cannot erase upstream errors or upgrade inferred evidence. |
 | L6 identity/grouping/output | `GroupCases`, result assembler, `Render`, `EvaluateCI` | Stable/lossless cases and groups; one result across terminal, Markdown, JSON, CI; policy failure differs from execution failure. Renderers run no checks. |
 | L7 repair planning/authority | `ProposeRepair`, `ValidateAuthorization` | Reversible allowlist, exact preview/digest, target/operation/session/time/revocation scope, single-use confirmation. Selection or consent grants no authority. |
@@ -254,6 +257,7 @@ scope, consent, profile, and event order.
 | Property | Expected relation |
 | --- | --- |
 | Renderer independence | Switching terminal, Markdown, JSON, or CI cannot change diagnostic axes, stable IDs, evidence lineage, grouping, or coverage. |
+| Human evidence visibility | Every displayed finding/candidate identifies its judgment basis and shows bounded cited source excerpts with locations, inferred panel rationale when present, and counterexample state. Terminal truncation preserves highest- and representative lowest-severity items and reports exact omitted counts; unanswered semantic questions never appear as risks. |
 | Irrelevant-order independence | Reordering sources, directory enumeration, or equivalent map fields cannot change canonical results. |
 | Scope monotonicity | Adding a source outside frozen discovery/inspection scope cannot add an in-scope case or read. |
 | Evidence monotonicity | Removing or withholding decisive evidence cannot produce a stronger state, severity, confidence, or evidence kind. |
@@ -452,7 +456,7 @@ the approved qualification protocol and minimum sample sizes apply.
 | Gate | Type | Release condition |
 | --- | --- | --- |
 | `GATE-PRIV-OFFLINE` | Absolute | All P0 deterministic families complete with network denied; zero network attempts. |
-| `GATE-PRIV-DISCLOSURE` | Absolute | Zero provider starts without enabled semantic mode and manifest-specific consent; no provider/content/purpose scope expansion. |
+| `GATE-PRIV-DISCLOSURE` | Absolute | Zero provider starts without enabled semantic mode and either an explicit one-shot diagnosis or standalone digest confirmation; every call matches the exact manifest and no provider/content/purpose scope expands. |
 | `GATE-PRIV-LEAKAGE` | Absolute | Zero fake-secret or unapproved script-body occurrences in model requests, outputs, logs, fingerprints, ordinary records, or external artifacts. |
 | `GATE-PRIV-TRUST` | Absolute | Zero script executions, provider-direct decisions/authority, or scope/permission changes caused by analyzed content. |
 
@@ -577,7 +581,7 @@ a score; it creates a new suite version and run.
 2. Deterministic suites deny network and provide no credentials. Provider
    simulations are local and scripted.
 3. Live-provider qualification is a separate opt-in environment using only
-   approved synthetic content and exact disclosure consent. Recordings are
+   approved synthetic content and exact disclosure authorization. Recordings are
    adapter fixtures, not accuracy ground truth.
 4. Environment profiles declare case sensitivity, Unicode/path behavior,
    symlink support, identity observations, permissions, race-safe replacement,

@@ -5,6 +5,7 @@ from pathlib import Path
 
 from agent_doctor.analysis import AnalysisRequest, analyze
 from agent_doctor.canonical import canonical_json, strip_volatile
+from agent_doctor.human import build_human_summary
 from agent_doctor.model import FixedClock
 from agent_doctor.schema import validate_result
 
@@ -46,7 +47,7 @@ def test_vertical_pipeline_seals_one_graph_with_lineage_and_manual_actions(tmp_p
     assert all(action["authority"] == "none" for action in graph["next_actions"])
     assert graph["run"]["modes"] == {
         "deterministic": "enabled",
-        "semantic": "disabled",
+        "semantic": "enabled",
         "repair": "proposal_only",
     }
 
@@ -107,3 +108,92 @@ def test_multiple_redacted_skill_paths_remain_distinct_inventory_records(tmp_pat
     assert len({item["source_id"] for item in skill_sources}) == 2
     serialized = canonical_json(graph)
     assert all(secret_name not in serialized for secret_name in secret_names)
+
+
+def test_maintenance_freshness_checks_explicit_contract_without_mtime(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / ".git").mkdir()
+    skill = tmp_path / ".agents/skills/versioned/SKILL.md"
+    target = skill.parent / "references/policy.md"
+    target.parent.mkdir(parents=True)
+    skill.write_text(
+        """---
+name: versioned
+description: Review against a versioned policy.
+---
+required_policy_schema: 3
+Read `references/policy.md` before review.
+""",
+        encoding="utf-8",
+    )
+    target.write_text("schema: 3\n", encoding="utf-8")
+    graph = analyze(AnalysisRequest(tmp_path, project_trust="trusted")).graph
+    maintenance_checks = [
+        item for item in graph["checks"] if item["family"] == "maintenance"
+    ]
+    assert len(maintenance_checks) == 1
+    assert maintenance_checks[0]["state"] == "pass"
+    card = build_human_summary(graph)["health_cards"][0]
+    assert card["maintenance_evaluation"] == "checked_no_issue"
+    assert "explicit version contract" in card["maintenance_reason"]
+
+
+def test_reference_without_freshness_contract_abstains_in_health_card(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / ".git").mkdir()
+    skill = tmp_path / ".agents/skills/unversioned/SKILL.md"
+    target = skill.parent / "references/policy.md"
+    target.parent.mkdir(parents=True)
+    skill.write_text(
+        """---
+name: unversioned
+description: Review against a local policy.
+---
+Read `references/policy.md` before review.
+""",
+        encoding="utf-8",
+    )
+    target.write_text("schema: 1\n", encoding="utf-8")
+    graph = analyze(AnalysisRequest(tmp_path, project_trust="trusted")).graph
+    assert not any(
+        assessment["label"] == "stale_reference"
+        for case in graph["interaction_cases"]
+        for assessment in case["assessments"]
+    )
+    card = build_human_summary(graph)["health_cards"][0]
+    assert card["maintenance_evaluation"] == "insufficient_evidence"
+    assert "file age was not used" in card["maintenance_reason"]
+
+
+def test_explicit_single_file_fallback_does_not_become_invalid_reference(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / ".git").mkdir()
+    skill = tmp_path / ".agents/skills/fallback/SKILL.md"
+    skill.parent.mkdir(parents=True)
+    skill.write_text(
+        """---
+name: fallback
+description: Work with an optional extended policy.
+---
+本文件可以单独兜底；完整模式会补读 references/。
+只有在单文件安装场景里，才停留在本文件的兜底规则。
+完整说明见 [Policy](./references/policy.md)。
+""",
+        encoding="utf-8",
+    )
+    graph = analyze(AnalysisRequest(tmp_path, project_trust="trusted")).graph
+    assert not any(
+        assessment["label"] == "invalid_reference"
+        for case in graph["interaction_cases"]
+        for assessment in case["assessments"]
+    )
+    optional_checks = [
+        item
+        for item in graph["checks"]
+        if item.get("reason", {}).get("code") == "optional_reference_unavailable"
+    ]
+    assert len(optional_checks) == 1
+    assert optional_checks[0]["state"] == "pass"

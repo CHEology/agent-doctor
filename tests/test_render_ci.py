@@ -48,11 +48,56 @@ def test_human_projection_is_conservative_and_debug_projection_remains_available
     assert summary["issues"][0]["state"] == "candidate"
     assert "scope_overlap" in summary["issues"][0]["labels"]
     assert "semantic_relationships" in summary["health_cards"][0]["health_dimensions"]
-    assert summary["health_cards"][0]["health_dimensions"]["maintenance_freshness"] == "not_implemented"
+    assert summary["health_cards"][0]["health_dimensions"]["maintenance_freshness"] == "not_applicable"
+    assert "runtime_selection" in summary["health_cards"][0]["health_dimensions"]
     assert "runtime" in summary["limitation"].lower()
     debug = render_debug_terminal(graph)
     assert "cases:" in debug
     assert graph["interaction_cases"][0]["case_id"] in debug
+
+
+def test_human_report_shows_cited_sentences_and_model_provenance() -> None:
+    graph = _golden("G-001")
+    summary = build_human_summary(graph)
+    issue = summary["issues"][0]
+    assert issue["judgment_basis"] == "model_inferred_locally_adjudicated"
+    assert [item["location"] for item in issue["source_excerpts"]] == [
+        "repo/AGENTS.md:12",
+        "repo/skills/fast-update/SKILL.md:31",
+    ]
+    assert issue["model_reviews"]
+
+    terminal = render_terminal(graph)
+    markdown = render_markdown(graph)
+    assert "Trigger [repo/AGENTS.md:12]" in terminal
+    assert "Model semantic_panel:" in terminal
+    assert "Counterexample (excluded)" in terminal
+    assert "Cited source excerpts (2)" in markdown
+    assert "inferred evidence" in markdown
+
+
+def test_terminal_selects_severity_extremes_and_counts_omitted_cases() -> None:
+    graph = _golden("G-001")
+    template = graph["interaction_cases"][0]
+    severities = ["low", "critical", "medium", "high", "info", "medium"]
+    cases = []
+    for index, severity in enumerate(severities):
+        case = copy.deepcopy(template)
+        case["case_id"] = f"case-render-{index}"
+        case["question"] = f"Rendered {severity} issue {index}?"
+        case["severity"] = severity
+        cases.append(case)
+    graph["interaction_cases"] = cases
+    graph["finding_groups"] = []
+
+    terminal = render_terminal(graph)
+    assert "1. [finding] Rendered critical issue 1?" in terminal
+    assert "2. [finding] Rendered high issue 3?" in terminal
+    assert "3. [finding] Rendered medium issue 2?" in terminal
+    assert "Lower-priority examples:" in terminal
+    assert "5. [finding] Rendered low issue 0?" in terminal
+    assert "6. [finding] Rendered info issue 4?" in terminal
+    assert "… 1 additional finding/candidate(s) remain" in terminal
 
 
 def test_ci_distinguishes_policy_and_execution_failure() -> None:

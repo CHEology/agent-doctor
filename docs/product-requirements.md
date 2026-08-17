@@ -170,7 +170,8 @@ reporting and CI requirements but does not drive MVP administration features.
 
 ### Journey D: run without sharing content with a model
 
-1. The user disables semantic analysis or provides no model credentials.
+1. The user disables semantic coverage, declines the exact disclosure
+   manifest, or has no available model provider.
 2. Agent Doctor completes all deterministic checks locally.
 3. The report clearly labels semantic checks as not run, rather than passed.
 
@@ -297,15 +298,36 @@ Priority meanings:
 ### 10.5 P0 — privacy and model use
 
 - P0-R26: Complete deterministic analysis without a model or network access.
-- P0-R27: Make semantic analysis opt-in and support a user-provided model
-  credential or provider configuration.
-- P0-R28: Before model use, disclose the provider and the exact file/content
-  scope eligible for submission.
+- P0-R27: Enable semantic coverage and bounded question planning by default.
+  An explicit comprehensive semantic-diagnosis operation authorizes only the
+  immediately generated one-run disclosure manifest; every provider call must
+  still be mechanically bound to its exact digest. Retain standalone
+  prepare/invoke as an inspect-and-confirm workflow. Support explicit
+  disablement, exact inclusion/exclusion scope, and a user-provided credential
+  or provider configuration.
+- P0-R28: Before a standalone model invocation, disclose the provider and exact
+  file/content scope eligible for submission. A one-shot run must record the
+  same manifest, exclusions, provider/model/effort, purpose, and digest in its
+  local audit artifacts before starting any provider process; it grants no
+  persistent or background authorization.
 - P0-R29: Exclude secrets, executable scripts, and unrelated full referenced
   files by default.
 - P0-R30: Record which checks used a model without recording secrets or raw
   credentials.
-- P0-R31: If semantic analysis is disabled or unavailable, mark it `not_run`.
+- P0-R31: If semantic coverage is disabled or the provider is unavailable,
+  mark it `not_run`. A deterministic `scan` with semantic coverage enabled but
+  no provider panel reports the panel as pending rather than disabled or
+  passed; an explicit comprehensive diagnosis proceeds through the bounded
+  one-shot semantic workflow unless the user disables, narrows, or excludes it.
+  If exact scope resolution leaves fewer than two Skills, record a distinct
+  `semantic_relationship_scope_not_applicable` applicability pass with zero
+  provider calls; do not represent relationship analysis itself as completed
+  and do not widen the scope.
+- P0-R32: Run two blind analysts concurrently in isolated ephemeral contexts,
+  then a third fresh-context judge after both validate. A resolved analyst
+  disagreement must remain visible and may be at most a candidate; only local
+  deterministic rules may assign product state, severity, confidence,
+  provenance, grouping, or repair compatibility.
 
 ### 10.6 P1 — semantic diagnosis
 
@@ -330,6 +352,12 @@ Priority meanings:
   findings from durable reports.
 - P1-R10: Use stable finding and rule identifiers suitable for baselines and
   issue tracking.
+- P1-R11: Human reports rank findings and candidates by assigned or potential
+  severity, show representative cited source excerpts with exact locations,
+  distinguish deterministic findings from model-inferred findings and
+  unconfirmed candidates, retain counterexamples, and count any items or
+  excerpts omitted from a bounded terminal view. Unasked semantic questions
+  are coverage gaps, not risks.
 
 ### 10.8 P2 — deferred capabilities
 
@@ -401,8 +429,9 @@ examples; Stage 04 defines the formal measurement and release gates.
 ### 12.4 Privacy and degraded modes
 
 - AC-14: All deterministic P0 checks complete with network access unavailable.
-- AC-15: No content is sent to a model unless semantic analysis is enabled and
-  the eligible submission scope has been disclosed.
+- AC-15: No content is sent to a model unless semantic coverage is enabled,
+  the eligible submission scope has been disclosed, and the user has affirmed
+  that exact manifest digest.
 - AC-16: Secret fixtures and unapproved script contents never appear in model
   requests, reports, or change records.
 - AC-17: When model analysis is unavailable, deterministic results remain usable
@@ -433,7 +462,7 @@ success criteria.
 | Static analysis is mistaken for runtime truth | Separate observed, inferred, and runtime-unverified claims |
 | Repair capability expands perceived authority | Read-only default, bounded authorization, exact preview, and revocation |
 | Rollback overwrites later user work | Prior-state capture plus concurrent-change detection and safe refusal |
-| Model use leaks sensitive content | Optional BYOK mode, disclosure, minimization, and default exclusions |
+| Model use leaks sensitive content | Explicit bounded semantic operation, exact one-run disclosure authorization, minimization, and default exclusions |
 | Product duplicates security scanners | Keep coherence and interaction diagnosis as the explicit category boundary |
 | Codex behavior evolves | Version findings, rules, inputs, and cited behavior assumptions |
 | Early multi-platform scope dilutes quality | Prove the Codex-first taxonomy and evaluation set before adding adapters |
@@ -464,7 +493,7 @@ requirement names an outcome.
 | Rollback | Required for every supported write |
 | Product form | Local CLI first |
 | Deterministic mode | Offline |
-| Semantic mode | Optional BYOK with data minimization |
+| Semantic mode | Enabled for explicit comprehensive diagnosis through the signed-in Codex route; explicitly disable/narrow it; exact one-run disclosure and data minimization required |
 | Judgment strategy | Precision and explainability before coverage; abstention allowed |
 | Brand | Agent Doctor |
 | Repository | Public, MIT |

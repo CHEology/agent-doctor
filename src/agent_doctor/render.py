@@ -11,6 +11,108 @@ from .human import build_human_summary
 
 
 STATIC_LIMITATION = "Static evidence does not assert runtime selection or causality."
+TERMINAL_TOP_ISSUES = 3
+TERMINAL_LOW_ISSUES = 2
+TERMINAL_EXCERPTS_PER_ISSUE = 3
+TERMINAL_MODEL_REVIEWS_PER_ISSUE = 3
+
+
+JUDGMENT_BASIS_TEXT = {
+    "deterministic_rule_finding": "deterministic rule finding",
+    "model_inferred_locally_adjudicated": (
+        "model-inferred finding retained by local adjudication; not runtime proof"
+    ),
+    "candidate_unconfirmed": "candidate only; not established",
+    "model_candidate_unconfirmed": (
+        "model-inferred candidate only; not established"
+    ),
+}
+
+
+def _compact_text(value: Any, *, limit: int = 260) -> str:
+    text = " ".join(str(value).split())
+    if len(text) <= limit:
+        return text
+    return text[: max(0, limit - 1)].rstrip() + "…"
+
+
+def _issue_examples(
+    issues: list[dict[str, Any]],
+) -> tuple[list[tuple[int, dict[str, Any]]], list[tuple[int, dict[str, Any]]], int]:
+    ranked = list(enumerate(issues, start=1))
+    highest = ranked[:TERMINAL_TOP_ISSUES]
+    selected_ids = {str(item["case_id"]) for _, item in highest}
+    lower: list[tuple[int, dict[str, Any]]] = []
+    if len(ranked) > TERMINAL_TOP_ISSUES:
+        for rank, item in reversed(ranked):
+            if str(item["case_id"]) in selected_ids:
+                continue
+            lower.append((rank, item))
+            selected_ids.add(str(item["case_id"]))
+            if len(lower) == TERMINAL_LOW_ISSUES:
+                break
+        lower.reverse()
+    omitted = len(issues) - len(selected_ids)
+    return highest, lower, omitted
+
+
+def _append_terminal_issue(
+    lines: list[str], rank: int, issue: dict[str, Any]
+) -> None:
+    impact = issue["impact"] or "not assigned"
+    confidence = issue["confidence"] or "not assigned"
+    basis = JUDGMENT_BASIS_TEXT.get(
+        str(issue.get("judgment_basis")), str(issue.get("judgment_basis", "unknown"))
+    )
+    lines.extend(
+        [
+            f"  {rank}. [{issue['state']}] {issue['question']}",
+            f"     Impact: {impact}; confidence: {confidence}",
+            f"     Basis: {basis}",
+            "     Where: "
+            + (", ".join(issue["locations"]) or "no source location recorded"),
+            f"     Why: {issue['why']}",
+        ]
+    )
+    excerpts = issue.get("source_excerpts", [])
+    for sample in excerpts[:TERMINAL_EXCERPTS_PER_ISSUE]:
+        lines.append(
+            f"     Trigger [{sample['location']}]: {_compact_text(sample['text'])}"
+        )
+    if len(excerpts) > TERMINAL_EXCERPTS_PER_ISSUE:
+        lines.append(
+            f"     Trigger: … {len(excerpts) - TERMINAL_EXCERPTS_PER_ISSUE} "
+            "additional cited excerpt(s) remain in Markdown/JSON."
+        )
+    for review in issue.get("model_reviews", [])[:TERMINAL_MODEL_REVIEWS_PER_ISSUE]:
+        lines.append(
+            f"     Model {review['role']}: {_compact_text(review['text'])} "
+            f"({review['reference']})"
+        )
+    if len(issue.get("model_reviews", [])) > TERMINAL_MODEL_REVIEWS_PER_ISSUE:
+        lines.append(
+            "     Model review: … "
+            f"{len(issue['model_reviews']) - TERMINAL_MODEL_REVIEWS_PER_ISSUE} additional "
+            "panel rationale(s) remain in Markdown/JSON."
+        )
+    counterexample = issue.get("counterexample")
+    if isinstance(counterexample, dict):
+        status = "excluded" if counterexample.get("excluded") else "still open"
+        lines.append(
+            f"     Counterexample ({status}): "
+            + _compact_text(counterexample.get("considered", "none recorded"))
+        )
+    recommendations = issue["recommendations"] or [
+        "Inspect the cited evidence manually; no automatic repair is authorized."
+    ]
+    for recommendation in recommendations[:3]:
+        lines.append(f"     Next: {recommendation}")
+    if len(recommendations) > 3:
+        lines.append(
+            f"     Next: … {len(recommendations) - 3} additional bounded action(s) "
+            "are retained in the sealed result."
+        )
+    lines.append(f"     Reference: {issue['case_id']}")
 
 
 def render_json(graph: dict[str, Any], *, pretty: bool = True) -> str:
@@ -88,33 +190,73 @@ def render_terminal(graph: dict[str, Any]) -> str:
             f"inventoried {inventory_count} source(s), including {skill_count} Skill(s)"
         ),
         summary["limitation"],
-        "",
-        "What needs attention",
     ]
-    if not summary["issues"]:
-        lines.append("  Nothing was classified as a finding or candidate in completed checks.")
-    for index, issue in enumerate(summary["issues"], start=1):
-        impact = issue["impact"] or "not assigned"
-        confidence = issue["confidence"] or "not assigned"
+    semantic_calls = [
+        item
+        for item in graph.get("reproducibility", {}).get("semantic_calls", [])
+        if isinstance(item, dict)
+    ]
+    if semantic_calls:
+        call = semantic_calls[-1]
+        disclosure = call.get("disclosure_summary", {})
+        coverage = call.get("question_coverage", {})
+        exclusions = disclosure.get("exclusion_counts", {})
+        retention = disclosure.get("retention_and_cache", {})
+        excluded_total = sum(
+            value for value in exclusions.values() if isinstance(value, int)
+        )
+        exclusion_detail = ", ".join(
+            f"{key}={value}" for key, value in sorted(exclusions.items())
+        ) or "none recorded"
         lines.extend(
             [
-                f"  {index}. [{issue['state']}] {issue['question']}",
-                f"     Impact: {impact}; confidence: {confidence}",
-                "     Where: " + (", ".join(issue["locations"]) or "no source location recorded"),
-                f"     Why: {issue['why']}",
+                (
+                    "Semantic panel: "
+                    f"{call.get('provider', 'unknown')}/{call.get('model', 'unknown')} "
+                    f"effort={call.get('reasoning_effort', 'unknown')} "
+                    f"status={call.get('status', 'unknown')}"
+                ),
+                (
+                    "Semantic disclosure: "
+                    f"manifest={call.get('consent_manifest_digest', 'unknown')} | "
+                    f"Skills={disclosure.get('content_handle_count', 0)}, "
+                    f"claims={disclosure.get('disclosed_claim_count', 0)}, "
+                    f"questions={coverage.get('emitted_question_count', 0)}/"
+                    f"{coverage.get('eligible_question_count', 0)}, "
+                    f"excluded={excluded_total}"
+                ),
+                (
+                    "Semantic exclusions: " + exclusion_detail
+                ),
+                (
+                    "Semantic retention: "
+                    f"Agent Doctor cache={retention.get('agent_doctor_semantic_cache', 'unknown')}; "
+                    f"Codex session={retention.get('codex_session', 'unknown')}; "
+                    f"provider={retention.get('provider_retention', 'not recorded')}"
+                ),
+                (
+                    "Semantic artifacts: "
+                    f"{call.get('artifact_dir', 'not recorded')}"
+                ),
             ]
         )
-        recommendations = issue["recommendations"] or [
-            "Inspect the cited evidence manually; no automatic repair is authorized."
-        ]
-        for recommendation in recommendations[:3]:
-            lines.append(f"     Next: {recommendation}")
-        if len(recommendations) > 3:
-            lines.append(
-                f"     Next: … {len(recommendations) - 3} additional bounded action(s) "
-                "are retained in the sealed result."
-            )
-        lines.append(f"     Reference: {issue['case_id']}")
+    lines.extend(["", "What needs attention"])
+    if not summary["issues"]:
+        lines.append("  Nothing was classified as a finding or candidate in completed checks.")
+    highest, lower, omitted_issues = _issue_examples(summary["issues"])
+    if highest:
+        lines.append("  Highest-priority review items:")
+        for rank, issue in highest:
+            _append_terminal_issue(lines, rank, issue)
+    if lower:
+        lines.append("  Lower-priority examples:")
+        for rank, issue in lower:
+            _append_terminal_issue(lines, rank, issue)
+    if omitted_issues:
+        lines.append(
+            f"  … {omitted_issues} additional finding/candidate(s) remain in the "
+            "sealed result and complete Markdown/JSON projections."
+        )
 
     lines.extend(["", "Skill health (bounded to completed checks)"])
     if not summary["health_cards"]:
@@ -148,6 +290,12 @@ def render_terminal(graph: dict[str, Any]) -> str:
             + card["semantic_evaluation"]
             + "; maintenance: "
             + card["maintenance_evaluation"]
+        )
+        lines.append(
+            "     Runtime selection: "
+            + card["runtime_selection"]
+            + "; maintenance basis: "
+            + card["maintenance_reason"]
         )
         lines.append(
             "     Coverage: "
@@ -221,9 +369,37 @@ def render_markdown(graph: dict[str, Any]) -> str:
                 f"- Relationship labels: {labels}",
                 f"- Locations: {locations}",
                 f"- Why: {issue['why']}",
+                "- Judgment basis: "
+                + JUDGMENT_BASIS_TEXT.get(
+                    str(issue.get("judgment_basis")),
+                    str(issue.get("judgment_basis", "unknown")),
+                ),
                 f"- Durable case: `{issue['case_id']}`",
             ]
         )
+        excerpts = issue.get("source_excerpts", [])
+        if excerpts:
+            lines.append(f"- Cited source excerpts ({len(excerpts)}):")
+            for sample in excerpts:
+                lines.append(
+                    f"  - `{sample['location']}` — {_compact_text(sample['text'], limit=600)} "
+                    f"(`{sample['reference']}`)"
+                )
+        reviews = issue.get("model_reviews", [])
+        if reviews:
+            lines.append(f"- Model-panel rationales ({len(reviews)}; inferred evidence):")
+            for review in reviews:
+                lines.append(
+                    f"  - **{review['role']}** — {_compact_text(review['text'], limit=600)} "
+                    f"(`{review['reference']}`)"
+                )
+        counterexample = issue.get("counterexample")
+        if isinstance(counterexample, dict):
+            status = "excluded" if counterexample.get("excluded") else "still open"
+            lines.append(
+                f"- Counterexample ({status}): "
+                + _compact_text(counterexample.get("considered", "none recorded"), limit=600)
+            )
         for recommendation in issue["recommendations"]:
             lines.append(f"- Manual next step: {recommendation}")
         lines.append("")

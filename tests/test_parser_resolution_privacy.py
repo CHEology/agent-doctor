@@ -4,7 +4,12 @@ from pathlib import Path
 
 from agent_doctor.parser import parse_source
 from agent_doctor.privacy import SafeReader, minimize_excerpt, redact_secrets, safe_revision
-from agent_doctor.resolution import ReferenceDeclaration, extract_references, resolve_reference
+from agent_doctor.resolution import (
+    ReferenceDeclaration,
+    explicit_version_compatibility,
+    extract_references,
+    resolve_reference,
+)
 
 
 def test_parser_preserves_modalities_qualifiers_and_inclusive_columns() -> None:
@@ -74,6 +79,24 @@ def test_reference_resolves_from_declaration_and_rejects_escape(tmp_path: Path) 
     assert escape.normalized_target and not escape.normalized_target.startswith("/")
 
 
+def test_freshness_uses_explicit_version_contract_not_age() -> None:
+    assert explicit_version_compatibility(
+        "required_policy_schema: 3\n", "schema: 3\n"
+    )[0] == "compatible"
+    assert explicit_version_compatibility(
+        "required_policy_schema: 3\n",
+        "schema: 2\nnot compatible with schema 3\n",
+    )[0] == "incompatible"
+    assert explicit_version_compatibility(
+        "required_policy_schema: 3\n", "schema: 2\n"
+    )[0] == "insufficient_evidence"
+    status, reason = explicit_version_compatibility(
+        "Read `references/policy.md`.\n", "schema: 1\n"
+    )
+    assert status == "no_contract"
+    assert "required policy schema" in reason
+
+
 def test_reference_extraction_accepts_paths_but_not_commands_or_prose() -> None:
     content = """Read `references/policy.md` before review.
 Run `python \"<path-to-skill>/scripts/check.py\" --strict` when asked.
@@ -88,6 +111,40 @@ python scripts/check.py --all
         ("references/policy.md", 1),
         ("references/review.md", 4),
     ]
+
+
+def test_reference_extraction_preserves_explicit_single_file_fallback() -> None:
+    content = """本文件可以单独兜底；完整模式会补读 references/。
+只有在单文件安装场景里，才停留在本文件的兜底规则。
+完整说明见 [Policy](./references/policy.md)。
+"""
+    declarations = extract_references("source-a", content)
+    assert len(declarations) == 1
+    assert declarations[0].optional is True
+    assert declarations[0].optional_basis == (
+        "explicit single-file fallback contract in the declaring Skill"
+    )
+
+
+def test_single_file_fallback_is_bound_to_its_named_reference() -> None:
+    content = """Single-file fallback may omit [examples](references/examples.md).
+MUST read [security](references/security.md); startup fails without it.
+"""
+    declarations = extract_references("source-a", content)
+    by_raw = {item.raw: item for item in declarations}
+    assert by_raw["references/examples.md"].optional is True
+    assert by_raw["references/security.md"].optional is False
+    assert by_raw["references/security.md"].required is True
+
+
+def test_conditional_chinese_navigation_is_optional_but_must_is_not() -> None:
+    content = """想看场景样本评测：看 [样本](./evals/real-samples.md)。
+必须先读取 [安全规则](./references/security.md)。
+"""
+    declarations = extract_references("source-a", content)
+    by_raw = {item.raw: item for item in declarations}
+    assert by_raw["./evals/real-samples.md"].optional is True
+    assert by_raw["./references/security.md"].optional is False
 
 
 def test_reference_extraction_abstains_on_non_path_code_tokens() -> None:

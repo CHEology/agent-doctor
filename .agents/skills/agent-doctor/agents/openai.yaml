@@ -1,4 +1,4 @@
 interface:
   display_name: "Agent Doctor"
-  short_description: "Run and explain safe local Skill diagnostics"
-  default_prompt: "Use $agent-doctor to scan this workspace, explain the sealed findings, and keep semantic claims within the documented evidence boundary."
+  short_description: "Diagnose Skill health with bounded semantic review"
+  default_prompt: "Use $agent-doctor to run a comprehensive local Skill diagnosis: execute the bounded two-analyst-plus-judge semantic workflow by default, keep local final adjudication, and show the exact manifest and human-readable result."

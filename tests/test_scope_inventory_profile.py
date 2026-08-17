@@ -39,7 +39,8 @@ def test_scope_is_frozen_relative_and_manual_only(tmp_path: Path) -> None:
     assert scope.plan.workspace_identity == "workspace://"
     assert scope.plan.selected_regions == ("workspace://api",)
     assert scope.plan.modification_boundary == {"mode": "proposal_only", "targets": []}
-    assert scope.plan.semantic_disclosure_boundary["mode"] == "disabled"
+    assert scope.plan.semantic_disclosure_boundary["mode"] == "enabled"
+    assert scope.plan.semantic_disclosure_boundary["external_network"] is False
 
 
 def test_empty_instruction_is_ignored_without_inventing_a_shadowing_source(

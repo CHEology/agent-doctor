@@ -8,11 +8,12 @@ Agent Doctor is deliberately hybrid:
    source, parse and normalize, resolve references/configuration/precedence,
    retain evidence lineage, and seal one reproducible graph without network
    access.
-2. **Bounded model panel.** Use an isolated analyst for open-ended comparisons
-   that are difficult to encode as rules, then use a fresh-context critic with
-   reversed source order to search for counterexamples and missing evidence.
-3. **Local adjudication.** Validate both identities and citations, retain model
-   evidence as `inferred`, require corroboration for promotion, and decide
+2. **Bounded model panel.** Run two isolated blind analysts concurrently with
+   canonical and reversed source presentation, then use a third fresh-context
+   judge to expose consensus, disagreement, counterexamples, and missing evidence.
+3. **Local adjudication.** Validate all three identities and citations, retain
+   model evidence as `inferred`, require corroborated consensus for promotion,
+   and decide
    state, label, severity, grouping, and compatible manual next action locally.
 
 “Offline-first” describes layer 1 and the failure mode of the whole system. It
@@ -21,11 +22,12 @@ unqualified, deterministic results remain usable and semantic checks remain
 explicitly `not_run` or `insufficient_evidence`.
 
 The Stage 05 CLI implements layer 1 and the result projections. The Stage 06
-extension implements layers 2–3 as a three-step local exchange: prepare an
-exact minimized manifest without a model call, invoke an ephemeral signed-in
-Codex Desktop analyst and independent critic only after digest-specific
-consent, then validate and adjudicate the cited panel locally. The same
-repository Skill orchestrates both paths. Default terminal/Markdown output is
+extension implements layers 2–3 as both a one-shot semantic run and a three-step
+advanced exchange. An explicit one-shot request authorizes only the immediately
+generated minimized manifest; the adapter mechanically binds two parallel blind
+analysts and a subsequent judge to that digest. Prepare/invoke/finalize retains
+the inspect-and-confirm path. The same repository Skill orchestrates both paths.
+Default terminal/Markdown output is
 human-first, while JSON/CI and the explicit debug projection preserve the
 complete technical graph and stable IDs.
 

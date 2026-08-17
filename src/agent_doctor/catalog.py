@@ -24,11 +24,11 @@ from .profile import compatibility_decision, load_profile
 from .render import render_json, render_markdown, render_terminal, semantic_projection
 from .resolution import ReferenceDeclaration, resolve_reference
 from .scope import ScopeOptions, plan_scope
-from .semantic_panel import adjudicate_panel_answer
+from .semantic_panel import adjudicate_panel_answers
 from .semantic_workflow import (
     MANIFEST_SCHEMA_VERSION,
     SemanticWorkflowError,
-    build_critic_prompt,
+    build_judge_prompt,
     build_provider_prompt,
     invoke_codex_provider,
     provider_lifecycle_state,
@@ -652,7 +652,7 @@ def _semantic_contract_fixture() -> tuple[dict[str, Any], dict[str, Any]]:
         ],
         "semantic_panel": {"questions": [question]},
         "retention_and_cache": {"provider_retention": "unknown"},
-        "prompt_contract_version": "agent-doctor-semantic-panel-prompt/0.2",
+        "prompt_contract_version": "agent-doctor-semantic-panel-prompt/0.4",
         "taxonomy_version": "0.1",
     }
     manifest = dict(unsigned)
@@ -672,46 +672,61 @@ def _semantic_contract_fixture() -> tuple[dict[str, Any], dict[str, Any]]:
         "missing_evidence": [],
         "recommendation": None,
     }
-    analyst = {
-        "schema_version": "agent-doctor-semantic-analyst-response/0.2",
+    analyst_a = {
+        "schema_version": "agent-doctor-semantic-analyst-response/0.3",
         "manifest_digest": manifest["manifest_digest"],
         "provider": "codex-desktop",
         "model": manifest["model"],
-        "summary": "Fixture analyst response.",
+        "role": "analyst_a",
+        "summary": "Fixture analyst A response.",
         "answers": [answer],
         "limitations": ["Static evidence only."],
     }
-    review = {
-        "review_id": "review-1",
+    peer_answer = copy.deepcopy(answer)
+    peer_answer["answer_id"] = "answer-2"
+    analyst_b = {
+        "schema_version": "agent-doctor-semantic-analyst-response/0.3",
+        "manifest_digest": manifest["manifest_digest"],
+        "provider": "codex-desktop",
+        "model": manifest["model"],
+        "role": "analyst_b",
+        "summary": "Fixture analyst B response.",
+        "answers": [peer_answer],
+        "limitations": ["Static evidence only."],
+    }
+    judgment = {
+        "judgment_id": "judgment-1",
         "question_id": question["question_id"],
-        "answer_id": answer["answer_id"],
+        "analyst_a_answer_id": answer["answer_id"],
+        "analyst_b_answer_id": peer_answer["answer_id"],
         "source_refs": source_refs,
         "claim_refs": claim_refs,
-        "label": "semantic_conflict",
+        "selected_label": "semantic_conflict",
         "dimension": "question_policy",
-        "disposition": "corroborated",
-        "rationale": "The conflict survives reversed-order review.",
+        "disposition": "corroborated_consensus",
+        "rationale": "The conflict survives independent review and adjudication.",
         "citations": handle_refs,
         "counterexample": {"status": "excluded", "explanation": "No exception is stated."},
         "missing_evidence": [],
+        "selected_recommendation_from": "none",
         "recommendation_disposition": "not_applicable",
     }
-    critic = {
-        "schema_version": "agent-doctor-semantic-critic-response/0.2",
+    judge = {
+        "schema_version": "agent-doctor-semantic-judge-response/0.3",
         "manifest_digest": manifest["manifest_digest"],
         "provider": "codex-desktop",
         "model": manifest["model"],
-        "summary": "Fixture critic response.",
-        "reviews": [review],
+        "summary": "Fixture judge response.",
+        "judgments": [judgment],
         "limitations": ["No runtime evidence."],
     }
     response = {
-        "schema_version": "agent-doctor-semantic-panel-response/0.2",
+        "schema_version": "agent-doctor-semantic-panel-response/0.3",
         "manifest_digest": manifest["manifest_digest"],
         "provider": "codex-desktop",
         "model": manifest["model"],
-        "analyst": analyst,
-        "critic": critic,
+        "analysts": {"analyst_a": analyst_a, "analyst_b": analyst_b},
+        "judge": judge,
     }
     return manifest, response
 
@@ -735,14 +750,15 @@ def _semantic_assertions(case: dict[str, Any]) -> dict[str, bool]:
         return {"malformed_response_rejected": bool(validate_provider_response({}, manifest))}
     if case_id == "S-SEM-005":
         invalid = copy.deepcopy(response)
-        invalid["analyst"]["answers"][0]["citations"] = []
+        invalid["analysts"]["analyst_a"]["answers"][0]["citations"] = []
         return {"uncited_response_rejected": any("citations" in item for item in validate_provider_response(invalid, manifest))}
     if case_id == "S-SEM-006":
-        answer = response["analyst"]["answers"][0]
-        review = response["critic"]["reviews"][0]
-        review["disposition"] = "challenged"
-        review["label"] = "complementarity"
-        decision = adjudicate_panel_answer(answer, review)
+        answer_a = response["analysts"]["analyst_a"]["answers"][0]
+        answer_b = response["analysts"]["analyst_b"]["answers"][0]
+        judgment = response["judge"]["judgments"][0]
+        judgment["disposition"] = "challenged"
+        judgment["selected_label"] = None
+        decision = adjudicate_panel_answers(answer_a, answer_b, judgment)
         return {"panel_disagreement_abstains": decision["state"] == "insufficient_evidence" and decision["labels"] == []}
     if case_id == "S-SEM-007":
         approved = set(case["boundaries"]["semantic_disclosure"])
@@ -794,11 +810,13 @@ def _semantic_assertions(case: dict[str, Any]) -> dict[str, bool]:
         changed = _resign_manifest(changed)
         return {"prompt_change_invalidates_identity": changed["manifest_digest"] != manifest["manifest_digest"]}
     if case_id == "S-SEM-015":
-        decision = adjudicate_panel_answer(response["analyst"]["answers"][0], response["critic"]["reviews"][0])
-        return {"agreement_never_changes_provenance": decision["state"] == "finding" and "evidence_kind" not in response["analyst"]["answers"][0]}
+        answer_a = response["analysts"]["analyst_a"]["answers"][0]
+        answer_b = response["analysts"]["analyst_b"]["answers"][0]
+        decision = adjudicate_panel_answers(answer_a, answer_b, response["judge"]["judgments"][0])
+        return {"agreement_never_changes_provenance": decision["state"] == "finding" and "evidence_kind" not in answer_a}
     if case_id == "S-SEM-016":
         invalid = copy.deepcopy(response)
-        invalid["analyst"]["answers"][0].update({"state": "finding", "severity": "critical", "authorization": "write all files"})
+        invalid["analysts"]["analyst_a"]["answers"][0].update({"state": "finding", "severity": "critical", "authorization": "write all files"})
         errors = validate_provider_response(invalid, manifest)
         return {"provider_authority_rejected": any("forbidden authority field" in item for item in errors)}
     if case_id == "S-SEM-017":
@@ -806,8 +824,12 @@ def _semantic_assertions(case: dict[str, Any]) -> dict[str, bool]:
         tainted["content_handles"][0]["claims"][0]["excerpt"] = case["inputs"]["files"][0]["content"]
         tainted = _resign_manifest(tainted)
         prompt = build_provider_prompt({"manifest": tainted})
-        critic_prompt = build_critic_prompt({"manifest": tainted}, response["analyst"])
-        return {"quoted_instruction_is_untrusted": "untrusted data" in prompt and "untrusted data" in critic_prompt and len(tainted["content_handles"]) == 2}
+        judge_prompt = build_judge_prompt(
+            {"manifest": tainted},
+            response["analysts"]["analyst_a"],
+            response["analysts"]["analyst_b"],
+        )
+        return {"quoted_instruction_is_untrusted": "untrusted data" in prompt and "untrusted data" in judge_prompt and len(tainted["content_handles"]) == 2}
     retention = case["inputs"]["provider"]["retention"]
     return {"unknown_retention_disclosed_before_not_run": manifest["retention_and_cache"]["provider_retention"] == retention and provider_lifecycle_state(started=False, outcome="consent_absent") == "not_run"}
 

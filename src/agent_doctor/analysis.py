@@ -20,13 +20,13 @@ from .parser import ParsedSource, parse_source
 from .privacy import SafeReader, minimize_excerpt, redact_secrets
 from .profile import compatibility_decision, load_profile
 from .resolution import (
-    explicit_version_mismatch,
+    explicit_version_compatibility,
     extract_references,
     resolve_config_precedence,
     resolve_reference,
 )
 from .scope import ResolvedScope, ScopeOptions, plan_scope
-from .semantic_panel import adjudicate_panel_answer, recommendation_is_compatible
+from .semantic_panel import adjudicate_panel_answers, recommendation_is_compatible
 from .semantic_workflow import (
     response_digest as semantic_response_digest,
     validate_manifest_against_graph,
@@ -44,12 +44,14 @@ class AnalysisRequest:
     include_user: bool = False
     include_system: bool = False
     project_trust: str = "unknown"
-    semantic_mode: str = "disabled"
+    semantic_mode: str = "enabled"
     profile_path: Path | None = None
     semantic_manifest: dict[str, Any] | None = None
     semantic_invocation: dict[str, Any] | None = None
     semantic_response: dict[str, Any] | None = None
     semantic_consent_digest: str | None = None
+    semantic_not_applicable_reason: str | None = None
+    semantic_not_applicable_source_refs: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -592,17 +594,26 @@ def _duplicate_checks(state: _PipelineState) -> None:
             )
         else:
             # The reviewed profile establishes only that duplicate names can
-            # both be listed.  Divergent bodies do not prove selection,
-            # ambiguity, or causality, and semantic analysis is deliberately
-            # outside the product slice.  Preserve the occurrence and expose
-            # the skipped question without manufacturing an inference.
+            # both be listed. Divergent bodies require the manifest-bound semantic
+            # panel, and even that panel cannot prove runtime selection or
+            # causality. Preserve the occurrence without manufacturing an
+            # inference while the provider panel remains pending.
+            semantic_enabled = state.builder.modes["semantic"] == "enabled"
             _add_case(
                 state,
                 check_id="semantic.skill.duplicate-name-selection-risk",
                 family="semantic",
                 question=f"Do divergent same-name Skills {name!r} create a selection risk?",
                 check_state=CheckState.NOT_RUN.value,
-                reason={"code": "semantic_mode_disabled", "runtime_selection_unobserved": True, "expected": False},
+                reason={
+                    "code": (
+                        "semantic_provider_run_pending"
+                        if semantic_enabled
+                        else "semantic_mode_disabled"
+                    ),
+                    "runtime_selection_unobserved": True,
+                    "expected": semantic_enabled,
+                },
                 source_refs=source_refs,
                 claim_refs=claim_refs,
                 dimension="trigger",
@@ -722,6 +733,26 @@ def _reference_checks(state: _PipelineState) -> None:
                     status=resource_status,
                     reason=resolution.reason,
                 )
+            if declaration.optional and resolution.status in {
+                "missing",
+                "unreadable",
+                "unsupported_type",
+            }:
+                state.builder.add_check(
+                    check_id="deterministic.reference.validity",
+                    family="references",
+                    question=question,
+                    state=CheckState.PASS.value,
+                    reason={
+                        "code": "optional_reference_unavailable",
+                        "detail": resolution.reason,
+                        "optional_basis": declaration.optional_basis,
+                        "taxonomy_exclusion": "intentionally_optional_reference",
+                    },
+                    evidence_refs=(declaration_evidence, resolution_evidence),
+                    input_revisions=tuple(filter(None, (candidate.revision,))),
+                )
+                continue
             if resolution.status in {"missing", "escape", "unreadable", "unsupported_type"}:
                 action = state.builder.add_next_action(
                     kind="manual_repair",
@@ -741,7 +772,7 @@ def _reference_checks(state: _PipelineState) -> None:
                     severity="medium",
                     confidence="high",
                     evidence_refs=(declaration_evidence, resolution_evidence),
-                    counterexample={"considered": "The target may exist outside the scan or be optional.", "excluded": declaration.required or resolution.status == "escape", "basis": "The supported resolver and frozen package boundary decide validity without reading outside content."},
+                    counterexample={"considered": "The target may exist outside the scan or be intentionally optional.", "excluded": True, "basis": "The supported resolver and frozen package boundary decide validity without reading outside content, and explicit optional-reference contracts were excluded before this finding."},
                     next_action_refs=(action,),
                 )
                 continue
@@ -927,12 +958,14 @@ def _reference_checks(state: _PipelineState) -> None:
                     completeness="partial",
                 )
                 continue
-            mismatch, mismatch_reason = explicit_version_mismatch(content, target_read.content)
-            if mismatch:
+            compatibility_status, compatibility_reason = (
+                explicit_version_compatibility(content, target_read.content)
+            )
+            if compatibility_status == "incompatible":
                 compatibility_evidence = state.builder.add_evidence(
                     kind=EvidenceKind.DERIVED.value,
                     producer=f"reference-compatibility@{RULE_SET_VERSION}",
-                    summary=mismatch_reason or "explicit reference compatibility mismatch",
+                    summary=compatibility_reason,
                     source_refs=(candidate.source_id, resource.source_id),
                     parent_evidence_refs=(declaration_evidence, state.source_evidence[resource.source_id]),
                     rule_or_provider={"rule_id": "reference.explicit-version-incompatibility@0.1"},
@@ -949,7 +982,10 @@ def _reference_checks(state: _PipelineState) -> None:
                     family="references",
                     question=f"Is {resolution.normalized_target} compatible with its declared consumer?",
                     check_state=CheckState.FINDING.value,
-                    reason={"code": "explicit_version_incompatibility", "detail": mismatch_reason},
+                    reason={
+                        "code": "explicit_version_incompatibility",
+                        "detail": compatibility_reason,
+                    },
                     source_refs=(candidate.source_id, resource.source_id),
                     dimension="reference_compatibility",
                     labels=("stale_reference",),
@@ -957,6 +993,89 @@ def _reference_checks(state: _PipelineState) -> None:
                     confidence="high",
                     evidence_refs=(declaration_evidence, state.source_evidence[resource.source_id], compatibility_evidence),
                     counterexample={"considered": "An older target may be intentionally pinned.", "excluded": True, "basis": "The target explicitly declares incompatibility with the required schema."},
+                    next_action_refs=(action,),
+                )
+                continue
+            if compatibility_status == "compatible":
+                compatibility_evidence = state.builder.add_evidence(
+                    kind=EvidenceKind.DERIVED.value,
+                    producer=f"reference-compatibility@{RULE_SET_VERSION}",
+                    summary=compatibility_reason,
+                    source_refs=(candidate.source_id, resource.source_id),
+                    parent_evidence_refs=(
+                        declaration_evidence,
+                        state.source_evidence[resource.source_id],
+                    ),
+                    rule_or_provider={
+                        "rule_id": "reference.explicit-version-compatibility@0.1"
+                    },
+                    disclosure="location_only",
+                )
+                state.builder.add_check(
+                    check_id="deterministic.reference.freshness",
+                    family="maintenance",
+                    question=(
+                        f"Does {resolution.normalized_target} satisfy its declared "
+                        "schema compatibility contract?"
+                    ),
+                    state=CheckState.PASS.value,
+                    reason={
+                        "code": "explicit_version_compatibility",
+                        "detail": compatibility_reason,
+                    },
+                    evidence_refs=(
+                        declaration_evidence,
+                        state.source_evidence[resource.source_id],
+                        compatibility_evidence,
+                    ),
+                    input_revisions=tuple(
+                        filter(None, (candidate.revision, target_read.revision))
+                    ),
+                )
+                continue
+            if compatibility_status == "insufficient_evidence":
+                action = state.builder.add_next_action(
+                    kind="evidence_request",
+                    summary=(
+                        f"Add or review an explicit compatibility declaration for "
+                        f"{resolution.normalized_target}; do not infer freshness from age."
+                    ),
+                    bounds={
+                        "source": candidate.location,
+                        "target": resolution.normalized_target,
+                        "automatic_apply": False,
+                    },
+                )
+                _add_case(
+                    state,
+                    check_id="deterministic.reference.freshness",
+                    family="maintenance",
+                    question=(
+                        f"Does {resolution.normalized_target} satisfy its declared "
+                        "schema compatibility contract?"
+                    ),
+                    check_state=CheckState.INSUFFICIENT_EVIDENCE.value,
+                    reason={
+                        "code": "freshness_contract_incomplete",
+                        "detail": compatibility_reason,
+                        "mtime_used": False,
+                        "expected": True,
+                    },
+                    source_refs=(candidate.source_id, resource.source_id),
+                    dimension="maintenance_freshness",
+                    confidence="high",
+                    evidence_refs=(
+                        declaration_evidence,
+                        state.source_evidence[resource.source_id],
+                    ),
+                    counterexample={
+                        "considered": "The reference may still be compatible.",
+                        "excluded": False,
+                        "basis": (
+                            "The declared version facts do not decide compatibility; "
+                            "timestamps were not used."
+                        ),
+                    },
                     next_action_refs=(action,),
                 )
 
@@ -1195,6 +1314,40 @@ def _semantic_coverage(state: _PipelineState, request: AnalysisRequest) -> None:
         )
         return
 
+    if request.semantic_not_applicable_reason is not None:
+        selected_refs = tuple(sorted(request.semantic_not_applicable_source_refs))
+        parent_source_evidence = tuple(
+            state.source_evidence[source_ref]
+            for source_ref in selected_refs
+            if source_ref in state.source_evidence
+        )
+        _add_case(
+            state,
+            check_id="semantic.skill.relationship-applicability",
+            family="semantic",
+            question=(
+                "Was cross-Skill semantic relationship analysis applicable to "
+                "the selected Skill set?"
+            ),
+            check_state=CheckState.PASS.value,
+            reason={
+                "code": "semantic_relationship_scope_not_applicable",
+                "detail": request.semantic_not_applicable_reason,
+                "selected_skill_count": len(selected_refs),
+                "provider_started": False,
+                "expected": True,
+            },
+            source_refs=selected_refs,
+            dimension="semantic_coverage",
+            evidence_refs=(mode_evidence,) + parent_source_evidence,
+            counterexample={
+                "considered": "A cross-Skill relationship may still exist.",
+                "excluded": True,
+                "basis": "Fewer than two Skills were selected, so no pair exists.",
+            },
+        )
+        return
+
     manifest = request.semantic_manifest
     response = request.semantic_response
     invocation = request.semantic_invocation
@@ -1204,14 +1357,14 @@ def _semantic_coverage(state: _PipelineState, request: AnalysisRequest) -> None:
             state,
             check_id="semantic.skill.relationship",
             family="semantic",
-            question="Was a consented semantic Skill relationship response available?",
+            question="Was a manifest-bound semantic Skill relationship response available?",
             check_state=CheckState.NOT_RUN.value,
             reason={
-                "code": "semantic_submission_pending",
+                "code": "semantic_provider_run_pending",
                 "expected": True,
                 "required": [
                     "exact disclosure manifest",
-                    "digest-bound consent",
+                    "digest-bound one-run or standalone authorization",
                     "validated provider invocation",
                     "provider response",
                 ],
@@ -1292,9 +1445,9 @@ def _semantic_coverage(state: _PipelineState, request: AnalysisRequest) -> None:
     calls = invocation.get("calls")
     if (
         not isinstance(calls, list)
-        or len(calls) != 2
+        or len(calls) != 3
         or [item.get("role") for item in calls if isinstance(item, dict)]
-        != ["analyst", "critic"]
+        != ["analyst_a", "analyst_b", "judge"]
         or any(
             not isinstance(item, dict)
             or item.get("fresh_ephemeral_context") is not True
@@ -1302,12 +1455,31 @@ def _semantic_coverage(state: _PipelineState, request: AnalysisRequest) -> None:
         )
     ):
         invocation_errors.append(
-            "provider invocation did not establish two fresh panel contexts"
+            "provider invocation did not establish three fresh panel contexts"
         )
-    elif calls[0].get("source_order") != "canonical" or calls[1].get(
-        "source_order"
-    ) != "reversed":
+    elif (
+        calls[0].get("source_order") != "canonical"
+        or calls[1].get("source_order") != "reversed"
+        or calls[0].get("execution_group") != "parallel_analysts"
+        or calls[1].get("execution_group") != "parallel_analysts"
+        or calls[0].get("blind_to_peer") is not True
+        or calls[1].get("blind_to_peer") is not True
+        or calls[2].get("starts_after") != ["analyst_a", "analyst_b"]
+    ):
         invocation_errors.append("provider invocation panel source order mismatch")
+    elif (
+        isinstance(response.get("analysts"), dict)
+        and isinstance(response["analysts"].get("analyst_a"), dict)
+        and isinstance(response["analysts"].get("analyst_b"), dict)
+        and isinstance(response.get("judge"), dict)
+    ):
+        expected_call_digests = [
+            semantic_response_digest(response["analysts"]["analyst_a"]),
+            semantic_response_digest(response["analysts"]["analyst_b"]),
+            semantic_response_digest(response["judge"]),
+        ]
+        if [item.get("response_digest") for item in calls] != expected_call_digests:
+            invocation_errors.append("provider invocation call digest mismatch")
     response_errors = validate_provider_response(response, manifest)
     errors = sorted(set(invocation_errors + response_errors))
     selected_refs = tuple(
@@ -1317,6 +1489,34 @@ def _semantic_coverage(state: _PipelineState, request: AnalysisRequest) -> None:
             )
         )
     )
+    semantic_source_selection = {
+        "selected_source_refs": list(selected_refs),
+        "requested_source_refs": list(
+            manifest.get("source_selection", {}).get(
+                "requested_source_refs", []
+            )
+        ),
+        "question_limit_omitted_source_refs": list(
+            manifest.get("source_selection", {}).get(
+                "question_limit_omitted_source_refs", []
+            )
+        ),
+    }
+    semantic_question_coverage = dict(
+        manifest.get("semantic_panel", {}).get("coverage", {})
+    )
+    semantic_disclosure = {
+        "content_handle_count": len(manifest.get("content_handles", [])),
+        "disclosed_claim_count": sum(
+            len(item.get("claims", []))
+            for item in manifest.get("content_handles", [])
+            if isinstance(item, dict)
+        ),
+        "exclusion_counts": dict(
+            manifest.get("exclusions", {}).get("counts", {})
+        ),
+        "retention_and_cache": dict(manifest.get("retention_and_cache", {})),
+    }
     parent_source_evidence = tuple(
         state.source_evidence[source_ref]
         for source_ref in selected_refs
@@ -1326,6 +1526,9 @@ def _semantic_coverage(state: _PipelineState, request: AnalysisRequest) -> None:
         call = dict(invocation)
         call["status"] = "unusable"
         call["response_validation"] = errors
+        call["source_selection"] = semantic_source_selection
+        call["question_coverage"] = semantic_question_coverage
+        call["disclosure_summary"] = semantic_disclosure
         state.builder.semantic_calls.append(call)
         _add_case(
             state,
@@ -1354,15 +1557,23 @@ def _semantic_coverage(state: _PipelineState, request: AnalysisRequest) -> None:
     call["response_validation"] = "valid"
     call["evidence_kind"] = EvidenceKind.INFERRED.value
     call["local_final_adjudication"] = True
+    call["source_selection"] = semantic_source_selection
+    call["question_coverage"] = semantic_question_coverage
+    call["disclosure_summary"] = semantic_disclosure
     state.builder.semantic_calls.append(call)
-    analyst = response["analyst"]
-    critic = response["critic"]
+    analyst_a = response["analysts"]["analyst_a"]
+    analyst_b = response["analysts"]["analyst_b"]
+    judge = response["judge"]
     summary_excerpt = minimize_excerpt(
-        f"Analyst: {analyst['summary']} Critic: {critic['summary']}", limit=480
+        (
+            f"Analyst A: {analyst_a['summary']} "
+            f"Analyst B: {analyst_b['summary']} Judge: {judge['summary']}"
+        ),
+        limit=480,
     )[0]
     response_evidence = state.builder.add_evidence(
         kind=EvidenceKind.INFERRED.value,
-        producer="codex-desktop-semantic-panel@0.2",
+        producer="codex-desktop-semantic-panel@0.3",
         summary=summary_excerpt,
         source_refs=selected_refs,
         parent_evidence_refs=parent_source_evidence,
@@ -1385,8 +1596,10 @@ def _semantic_coverage(state: _PipelineState, request: AnalysisRequest) -> None:
         state=CheckState.PASS.value,
         reason={
             "code": "semantic_provider_response_valid",
-            "question_count": len(analyst["answers"]),
-            "critic_review_count": len(critic["reviews"]),
+            "question_count": len(analyst_a["answers"]),
+            "analyst_a_answer_count": len(analyst_a["answers"]),
+            "analyst_b_answer_count": len(analyst_b["answers"]),
+            "judge_judgment_count": len(judge["judgments"]),
             "release_qualified": manifest["qualification"]["release_qualified"],
         },
         evidence_refs=(mode_evidence, response_evidence),
@@ -1395,7 +1608,7 @@ def _semantic_coverage(state: _PipelineState, request: AnalysisRequest) -> None:
         ),
     )
 
-    coverage = manifest.get("semantic_panel", {}).get("coverage", {})
+    coverage = semantic_question_coverage
     if not coverage.get("complete", False):
         _add_case(
             state,
@@ -1425,13 +1638,19 @@ def _semantic_coverage(state: _PipelineState, request: AnalysisRequest) -> None:
         )
 
     source_records = {item.source_id: item for item in state.builder.sources}
-    reviews_by_answer = {
-        item["answer_id"]: item for item in critic["reviews"]
+    analyst_b_by_question = {
+        item["question_id"]: item for item in analyst_b["answers"]
+    }
+    judgments_by_question = {
+        item["question_id"]: item for item in judge["judgments"]
     }
     grouped: dict[tuple[tuple[str, ...], str], list[dict[str, Any]]] = {}
-    for answer in analyst["answers"]:
-        joined = dict(answer)
-        joined["critic_review"] = reviews_by_answer[answer["answer_id"]]
+    for answer in analyst_a["answers"]:
+        joined = {
+            "analyst_a": answer,
+            "analyst_b": analyst_b_by_question[answer["question_id"]],
+            "judge": judgments_by_question[answer["question_id"]],
+        }
         key = (tuple(sorted(answer["source_refs"])), answer["dimension"])
         grouped.setdefault(key, []).append(joined)
 
@@ -1441,13 +1660,25 @@ def _semantic_coverage(state: _PipelineState, request: AnalysisRequest) -> None:
                 {
                     claim_ref
                     for relation in relations
-                    for claim_ref in relation["claim_refs"]
+                    for role in ("analyst_a", "analyst_b", "judge")
+                    for claim_ref in relation[role]["claim_refs"]
                 }
             )
         )
-        analyst_labels = tuple(sorted({relation["label"] for relation in relations}))
-        critic_labels = tuple(
-            sorted({relation["critic_review"]["label"] for relation in relations})
+        analyst_a_labels = tuple(
+            sorted({relation["analyst_a"]["label"] for relation in relations})
+        )
+        analyst_b_labels = tuple(
+            sorted({relation["analyst_b"]["label"] for relation in relations})
+        )
+        judge_labels = tuple(
+            sorted(
+                {
+                    relation["judge"]["selected_label"]
+                    for relation in relations
+                    if relation["judge"]["selected_label"] is not None
+                }
+            )
         )
         locations = [
             source_records[source_ref].location
@@ -1467,79 +1698,89 @@ def _semantic_coverage(state: _PipelineState, request: AnalysisRequest) -> None:
         }
         relation_evidence: list[str] = []
         for relation in relations:
+            answer_a = relation["analyst_a"]
+            answer_b = relation["analyst_b"]
+            judgment = relation["judge"]
             parents = tuple(
                 sorted(
                     {
                         *(
                             state.source_evidence[source_ref]
-                            for source_ref in relation["source_refs"]
+                            for source_ref in answer_a["source_refs"]
                             if source_ref in state.source_evidence
                         ),
                         *(
                             state.claim_evidence[claim_ref]
-                            for claim_ref in relation["claim_refs"]
+                            for claim_ref in claim_refs
                             if claim_ref in state.claim_evidence
                         ),
                     }
                 )
             )
-            rationale = minimize_excerpt(relation["rationale"], limit=480)[0]
-            relation_evidence.append(
-                state.builder.add_evidence(
-                    kind=EvidenceKind.INFERRED.value,
-                    producer="codex-desktop-semantic-analyst@0.2",
-                    summary=rationale,
-                    source_refs=tuple(sorted(relation["source_refs"])),
-                    parent_evidence_refs=parents,
-                    rule_or_provider={
-                        "source_kind": "model",
-                        "provider": manifest["provider"],
-                        "model": manifest["model"],
-                        "panel_role": "analyst",
-                        "answer_id": relation["answer_id"],
-                        "question_id": relation["question_id"],
-                        "label_hypothesis": relation["label"],
-                        "citations": relation["citations"],
-                        "consent_manifest_digest": expected_digest,
-                    },
-                    disclosure="excerpt",
-                    excerpt=rationale,
+            for role, answer in (
+                ("analyst_a", answer_a),
+                ("analyst_b", answer_b),
+            ):
+                rationale = minimize_excerpt(answer["rationale"], limit=480)[0]
+                relation_evidence.append(
+                    state.builder.add_evidence(
+                        kind=EvidenceKind.INFERRED.value,
+                        producer=f"codex-desktop-semantic-{role}@0.3",
+                        summary=rationale,
+                        source_refs=tuple(sorted(answer["source_refs"])),
+                        parent_evidence_refs=parents,
+                        rule_or_provider={
+                            "source_kind": "model",
+                            "provider": manifest["provider"],
+                            "model": manifest["model"],
+                            "panel_role": role,
+                            "answer_id": answer["answer_id"],
+                            "question_id": answer["question_id"],
+                            "label_hypothesis": answer["label"],
+                            "citations": answer["citations"],
+                            "consent_manifest_digest": expected_digest,
+                        },
+                        disclosure="excerpt",
+                        excerpt=rationale,
+                    )
                 )
-            )
-            review = relation["critic_review"]
-            critic_rationale = minimize_excerpt(review["rationale"], limit=480)[0]
+            judge_rationale = minimize_excerpt(judgment["rationale"], limit=480)[0]
             relation_evidence.append(
                 state.builder.add_evidence(
                     kind=EvidenceKind.INFERRED.value,
-                    producer="codex-desktop-semantic-critic@0.2",
-                    summary=critic_rationale,
-                    source_refs=tuple(sorted(review["source_refs"])),
+                    producer="codex-desktop-semantic-judge@0.3",
+                    summary=judge_rationale,
+                    source_refs=tuple(sorted(judgment["source_refs"])),
                     parent_evidence_refs=parents,
                     rule_or_provider={
                         "source_kind": "model",
                         "provider": manifest["provider"],
                         "model": manifest["model"],
-                        "panel_role": "critic",
-                        "review_id": review["review_id"],
-                        "answer_id": review["answer_id"],
-                        "question_id": review["question_id"],
-                        "disposition": review["disposition"],
-                        "label_hypothesis": review["label"],
-                        "citations": review["citations"],
+                        "panel_role": "judge",
+                        "judgment_id": judgment["judgment_id"],
+                        "analyst_a_answer_id": judgment["analyst_a_answer_id"],
+                        "analyst_b_answer_id": judgment["analyst_b_answer_id"],
+                        "question_id": judgment["question_id"],
+                        "disposition": judgment["disposition"],
+                        "label_hypothesis": judgment["selected_label"],
+                        "citations": judgment["citations"],
                         "consent_manifest_digest": expected_digest,
                     },
                     disclosure="excerpt",
-                    excerpt=critic_rationale,
+                    excerpt=judge_rationale,
                 )
             )
 
         if len(relations) != 1:
             raise ValueError("semantic panel emitted duplicate pair/dimension questions")
-        panel_decision = adjudicate_panel_answer(
-            relations[0], relations[0]["critic_review"]
+        relation = relations[0]
+        panel_decision = adjudicate_panel_answers(
+            relation["analyst_a"],
+            relation["analyst_b"],
+            relation["judge"],
+            shared_region_established=applicable,
         )
         panel_agrees = bool(panel_decision["agreement"])
-        critic_challenged = bool(panel_decision["challenged"])
         has_open_counterexample = bool(panel_decision["counterexample_open"])
         has_missing_evidence = bool(panel_decision["missing_evidence"])
         decisive = bool(panel_decision["decisive"])
@@ -1563,8 +1804,9 @@ def _semantic_coverage(state: _PipelineState, request: AnalysisRequest) -> None:
             explanation
             for relation in relations
             for explanation in (
-                relation["counterexample"]["explanation"],
-                relation["critic_review"]["counterexample"]["explanation"],
+                relation["analyst_a"]["counterexample"]["explanation"],
+                relation["analyst_b"]["counterexample"]["explanation"],
+                relation["judge"]["counterexample"]["explanation"],
             )
             if explanation
         )
@@ -1573,23 +1815,33 @@ def _semantic_coverage(state: _PipelineState, request: AnalysisRequest) -> None:
                 item
                 for relation in relations
                 for item in (
-                    list(relation["missing_evidence"])
-                    + list(relation["critic_review"]["missing_evidence"])
+                    list(relation["analyst_a"]["missing_evidence"])
+                    + list(relation["analyst_b"]["missing_evidence"])
+                    + list(relation["judge"]["missing_evidence"])
                 )
             }
         )
         action_refs: tuple[str, ...] = ()
-        accepted_recommendations = [
-            relation["recommendation"]
-            for relation in relations
-            if decisive
-            and relation.get("recommendation") is not None
-            and relation["critic_review"]["recommendation_disposition"] == "accepted"
+        recommendation_role = relation["judge"]["selected_recommendation_from"]
+        recommendation_answer = (
+            relation[recommendation_role]
+            if recommendation_role in {"analyst_a", "analyst_b"}
+            else None
+        )
+        accepted_recommendations = []
+        if (
+            decisive
+            and recommendation_answer is not None
+            and recommendation_answer.get("recommendation") is not None
+            and relation["judge"]["recommendation_disposition"] == "accepted"
+            and relation["judge"]["selected_label"] == recommendation_answer["label"]
             and recommendation_is_compatible(
-                relation["label"], relation["recommendation"]["kind"]
+                recommendation_answer["label"],
+                recommendation_answer["recommendation"]["kind"],
             )
-            and relation["recommendation"]["kind"] != "no_action"
-        ]
+            and recommendation_answer["recommendation"]["kind"] != "no_action"
+        ):
+            accepted_recommendations.append(recommendation_answer["recommendation"])
         if accepted_recommendations:
             recommendation = accepted_recommendations[0]
             action_refs = (
@@ -1630,6 +1882,7 @@ def _semantic_coverage(state: _PipelineState, request: AnalysisRequest) -> None:
                         "dimension": dimension,
                         "missing_evidence": missing,
                         "panel_agreement": panel_agrees,
+                        "resolution_kind": panel_decision["resolution_kind"],
                         "automatic_apply": False,
                     },
                 ),
@@ -1646,22 +1899,27 @@ def _semantic_coverage(state: _PipelineState, request: AnalysisRequest) -> None:
             reason={
                 "code": "local_semantic_panel_adjudication",
                 "question_ids": sorted(
-                    {relation["question_id"] for relation in relations}
+                    {relation["analyst_a"]["question_id"] for relation in relations}
                 ),
-                "analyst_labels": list(analyst_labels),
-                "critic_labels": list(critic_labels),
-                "critic_dispositions": sorted(
+                "analyst_a_labels": list(analyst_a_labels),
+                "analyst_b_labels": list(analyst_b_labels),
+                "judge_labels": list(judge_labels),
+                "judge_dispositions": sorted(
                     {
-                        relation["critic_review"]["disposition"]
+                        relation["judge"]["disposition"]
                         for relation in relations
                     }
                 ),
                 "panel_agreement": panel_agrees,
+                "analyst_agreement": panel_decision["analyst_agreement"],
+                "resolved_disagreement": panel_decision["resolved_disagreement"],
+                "resolution_kind": panel_decision["resolution_kind"],
                 "counterexample_open": has_open_counterexample,
                 "missing_evidence": missing,
                 "manual_recommendation_accepted": bool(accepted_recommendations),
                 "release_qualified": manifest["qualification"]["release_qualified"],
                 "runtime_causality_asserted": False,
+                "shared_applicability_region_established": applicable,
             },
             source_refs=source_refs,
             claim_refs=claim_refs,
@@ -1677,9 +1935,9 @@ def _semantic_coverage(state: _PipelineState, request: AnalysisRequest) -> None:
                 "considered": counterexample_text or "No counterexample supplied.",
                 "excluded": not has_open_counterexample,
                 "basis": (
-                    "Analyst and independent critic counterexamples were joined "
-                    "by frozen question identity and locally interpreted; static "
-                    "evidence does not establish runtime causality."
+                    "Both blind analysts and the fresh judge were joined by frozen "
+                    "question identity and locally interpreted; static evidence "
+                    "does not establish runtime causality."
                 ),
             },
             next_action_refs=action_refs,

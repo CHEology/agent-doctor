@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Never, Sequence
 
 from .analysis import AnalysisRequest, analyze
+from .canonical import digest
 from .ci import CIPolicy, evaluate_ci, exit_code as ci_exit_code
 from .openai_models import (
     ModelSelectionRequest,
@@ -24,10 +25,12 @@ from .privacy import redact_secrets
 from .render import render_debug_terminal, render_json, render_markdown, render_terminal
 from .scenario import SuitePaths, report_exit_code, run_suite, validate_suite_file
 from .semantic_workflow import (
+    INVOCATION_SCHEMA_VERSION,
     build_semantic_package,
     extract_invocation_response,
     invoke_codex_provider,
     resolve_codex_selection,
+    select_semantic_sources,
 )
 from .version import __version__
 
@@ -50,7 +53,10 @@ def _default_spec_root() -> Path:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = ArgumentParser(prog="agent-doctor", description="Offline-first Codex configuration diagnostics")
+    parser = ArgumentParser(
+        prog="agent-doctor",
+        description="Local-first Codex Skill diagnostics with consented semantic analysis",
+    )
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -70,8 +76,11 @@ def build_parser() -> argparse.ArgumentParser:
     scan.add_argument(
         "--semantic-mode",
         choices=("disabled", "enabled"),
-        default="disabled",
-        help="enable semantic workflow coverage (a consented semantic submission is a separate step)",
+        default="enabled",
+        help=(
+            "semantic coverage is enabled by default; use semantic run for an actual "
+            "bounded model panel, or disabled for deterministic-only diagnostics"
+        ),
     )
     scan.add_argument("--profile", type=Path, help="reviewed local Codex platform-profile JSON")
     scan.add_argument(
@@ -162,6 +171,74 @@ def build_parser() -> argparse.ArgumentParser:
     semantic_commands = semantic.add_subparsers(
         dest="semantic_command", required=True
     )
+    semantic_run = semantic_commands.add_parser(
+        "run",
+        help=(
+            "run deterministic preparation, two blind analysts, one judge, and "
+            "local final adjudication in one explicitly requested operation"
+        ),
+    )
+    semantic_run.add_argument("workspace", nargs="?", default=".")
+    semantic_run.add_argument("--selected")
+    semantic_run.add_argument("--include-user", action="store_true")
+    semantic_run.add_argument("--include-system", action="store_true")
+    semantic_run.add_argument(
+        "--project-trust",
+        choices=("trusted", "untrusted", "unknown"),
+        default="unknown",
+    )
+    semantic_run.add_argument("--profile", type=Path)
+    semantic_run.add_argument(
+        "--source",
+        action="append",
+        default=[],
+        help=(
+            "exact selected Skill source ID or displayed location (repeatable); "
+            "when omitted, use the bounded discovered non-inapplicable Skill set"
+        ),
+    )
+    semantic_run.add_argument(
+        "--exclude-source",
+        action="append",
+        default=[],
+        help=(
+            "exact Skill source ID or displayed location to exclude from the semantic "
+            "scope (repeatable)"
+        ),
+    )
+    semantic_run.add_argument(
+        "--purpose",
+        default=(
+            "Assess material semantic conflicts, scope overlap, behavioral "
+            "redundancy, and complementarity among the selected Skills."
+        ),
+    )
+    semantic_run.add_argument(
+        "--capability", default="semantic.reasoning_quality_first"
+    )
+    semantic_run.add_argument(
+        "--strategy", choices=("auto", "pinned"), default="auto"
+    )
+    semantic_run.add_argument("--model", dest="requested_model")
+    semantic_run.add_argument(
+        "--reasoning-effort",
+        choices=("none", "low", "medium", "high", "xhigh", "max"),
+    )
+    semantic_run.add_argument("--model-profile", type=Path)
+    semantic_run.add_argument("--as-of")
+    semantic_run.add_argument(
+        "--format", choices=("terminal", "debug", "markdown", "json"), default="terminal"
+    )
+    semantic_run.add_argument("--output", type=Path)
+    semantic_run.add_argument(
+        "--artifact-dir",
+        type=Path,
+        help=(
+            "write package, invocation, and sealed result JSON for audit/replay "
+            "(default: WORKSPACE/.agent-doctor/runs/MANIFEST_DIGEST)"
+        ),
+    )
+
     semantic_prepare = semantic_commands.add_parser(
         "prepare",
         help="build an exact minimized disclosure manifest without calling a model",
@@ -182,7 +259,19 @@ def build_parser() -> argparse.ArgumentParser:
         "--source",
         action="append",
         default=[],
-        help="exact selected Skill source ID or displayed location (repeatable)",
+        help=(
+            "exact selected Skill source ID or displayed location (repeatable); "
+            "when omitted, the bounded auto planner considers discovered non-inapplicable Skills"
+        ),
+    )
+    semantic_prepare.add_argument(
+        "--exclude-source",
+        action="append",
+        default=[],
+        help=(
+            "exact Skill source ID or displayed location to exclude from the semantic "
+            "scope (repeatable)"
+        ),
     )
     semantic_prepare.add_argument(
         "--purpose",
@@ -461,6 +550,218 @@ def _model_spec(args: argparse.Namespace) -> int:
         return EXIT_EXECUTION_FAILED
 
 
+def _render_semantic_graph(graph: dict[str, Any], format_name: str) -> str:
+    if format_name == "terminal":
+        return render_terminal(graph)
+    if format_name == "debug":
+        return render_debug_terminal(graph)
+    if format_name == "markdown":
+        return render_markdown(graph)
+    return render_json(graph)
+
+
+def _semantic_run(args: argparse.Namespace) -> int:
+    """Execute the explicitly requested, manifest-bound semantic workflow."""
+
+    try:
+        workspace = Path(args.workspace)
+        selected = Path(args.selected) if args.selected else None
+        if selected is not None and not selected.is_absolute():
+            selected = workspace / selected
+        preparation = analyze(
+            AnalysisRequest(
+                workspace=workspace,
+                selected_path=selected,
+                include_user=args.include_user,
+                include_system=args.include_system,
+                project_trust=args.project_trust,
+                semantic_mode="enabled",
+                profile_path=args.profile,
+            )
+        ).graph
+        if not preparation.get("sealed"):
+            raise ValueError("deterministic preparation graph did not seal")
+        selected_sources, missing_selectors = select_semantic_sources(
+            preparation,
+            source_selectors=tuple(args.source),
+            exclude_source_selectors=tuple(args.exclude_source),
+        )
+        if missing_selectors:
+            raise ValueError(
+                "semantic source selector did not resolve exactly once: "
+                + ", ".join(sorted(missing_selectors))
+            )
+        if len(selected_sources) < 2:
+            graph = analyze(
+                AnalysisRequest(
+                    workspace=workspace,
+                    selected_path=selected,
+                    include_user=args.include_user,
+                    include_system=args.include_system,
+                    project_trust=args.project_trust,
+                    semantic_mode="enabled",
+                    profile_path=args.profile,
+                    semantic_not_applicable_reason=(
+                        "cross-Skill semantic relationship analysis requires at "
+                        "least two selected Skills"
+                    ),
+                    semantic_not_applicable_source_refs=tuple(
+                        str(item["source_id"]) for item in selected_sources
+                    ),
+                )
+            ).graph
+            not_applicable_digest = digest(
+                {
+                    "result_id": graph["result_id"],
+                    "selected_source_refs": [
+                        item["source_id"] for item in selected_sources
+                    ],
+                    "reason": "fewer_than_two_selected_skills",
+                }
+            ).removeprefix("sha256:")
+            artifact_dir = (
+                args.artifact_dir.expanduser().resolve(strict=False)
+                if args.artifact_dir is not None
+                else workspace.expanduser().resolve(strict=False)
+                / ".agent-doctor"
+                / "runs"
+                / f"not-applicable-{not_applicable_digest}"
+            )
+            status = {
+                "schema_version": "agent-doctor-semantic-status/0.1",
+                "status": "not_applicable",
+                "reason": "fewer_than_two_selected_skills",
+                "selected_source_refs": [
+                    item["source_id"] for item in selected_sources
+                ],
+                "provider_started": False,
+                "result_ref": graph["result_id"],
+                "artifact_dir": str(artifact_dir),
+            }
+            _write(
+                json.dumps(status, ensure_ascii=False, indent=2, sort_keys=True)
+                + "\n",
+                artifact_dir / "semantic-status.json",
+            )
+            _write(render_json(graph), artifact_dir / "result.json")
+            rendered = _render_semantic_graph(graph, args.format)
+            if args.format in {"terminal", "debug"}:
+                rendered += f"Artifacts: {artifact_dir}\n"
+            _write(rendered, args.output)
+            return EXIT_OK
+        observed_on = date.fromisoformat(args.as_of) if args.as_of else None
+        selection = resolve_codex_selection(
+            model_profile_path=args.model_profile,
+            capability=args.capability,
+            strategy=args.strategy,
+            requested_model=args.requested_model,
+            reasoning_effort=args.reasoning_effort,
+            observed_on=observed_on,
+        )
+        package = build_semantic_package(
+            preparation,
+            source_selectors=tuple(args.source),
+            selection=selection,
+            purpose=args.purpose,
+            exclude_source_selectors=tuple(args.exclude_source),
+        )
+        manifest = package["manifest"]
+        artifact_dir = (
+            args.artifact_dir.expanduser().resolve(strict=False)
+            if args.artifact_dir is not None
+            else workspace.expanduser().resolve(strict=False)
+            / ".agent-doctor"
+            / "runs"
+            / str(manifest["manifest_digest"]).removeprefix("sha256:")
+        )
+        _write(
+            json.dumps(package, ensure_ascii=False, indent=2, sort_keys=True)
+            + "\n",
+            artifact_dir / "semantic-package.json",
+        )
+        provider_failed = False
+        try:
+            invocation_payload = invoke_codex_provider(
+                package,
+                consent_digest=manifest["manifest_digest"],
+                authorization_basis="explicit_semantic_run",
+            )
+        except Exception as provider_exc:
+            provider_failed = True
+            semantic_response: dict[str, Any] = {}
+            safe_failure = redact_secrets(
+                f"{type(provider_exc).__name__}: {provider_exc}"
+            ).text
+            rejected_calls = getattr(provider_exc, "calls", [])
+            rejected_response_digest = getattr(
+                provider_exc, "rejected_response_digest", None
+            )
+            invocation_payload = {
+                "schema_version": INVOCATION_SCHEMA_VERSION,
+                "invocation": {
+                    "schema_version": INVOCATION_SCHEMA_VERSION,
+                    "status": "failed",
+                    "provider": manifest["provider"],
+                    "model": manifest["model"],
+                    "reasoning_effort": manifest["reasoning_effort"],
+                    "authorization_basis": "explicit_semantic_run",
+                    "consent_manifest_digest": manifest["manifest_digest"],
+                    "selection_digest": manifest["selection"].get(
+                        "selection_digest"
+                    ),
+                    "response_digest": digest(semantic_response),
+                    "tool_activity_observed": [],
+                    "calls": rejected_calls,
+                    "ephemeral_session_count": len(rejected_calls),
+                    "rejected_response_digest": rejected_response_digest,
+                    "failure": safe_failure[:600],
+                },
+                "response": semantic_response,
+            }
+        invocation, semantic_response = extract_invocation_response(
+            invocation_payload
+        )
+        invocation["artifact_dir"] = str(artifact_dir)
+        if isinstance(invocation_payload.get("invocation"), dict):
+            invocation_payload["invocation"]["artifact_dir"] = str(artifact_dir)
+        graph = analyze(
+            AnalysisRequest(
+                workspace=workspace,
+                selected_path=selected,
+                include_user=args.include_user,
+                include_system=args.include_system,
+                project_trust=args.project_trust,
+                semantic_mode="enabled",
+                profile_path=args.profile,
+                semantic_manifest=manifest,
+                semantic_invocation=invocation,
+                semantic_response=semantic_response,
+                semantic_consent_digest=manifest["manifest_digest"],
+            )
+        ).graph
+        _write(
+            json.dumps(
+                invocation_payload, ensure_ascii=False, indent=2, sort_keys=True
+            )
+            + "\n",
+            artifact_dir / "semantic-invocation.json",
+        )
+        _write(render_json(graph), artifact_dir / "result.json")
+        _write(_render_semantic_graph(graph, args.format), args.output)
+        if (
+            provider_failed
+            or not graph.get("sealed")
+            or graph.get("run", {}).get("outcome") == "execution_failed"
+        ):
+            return EXIT_EXECUTION_FAILED
+        return EXIT_OK
+    except Exception as exc:
+        sys.stderr.write(
+            _error_payload("semantic_run_failed", f"{type(exc).__name__}: {exc}")
+        )
+        return EXIT_EXECUTION_FAILED
+
+
 def _semantic_prepare(args: argparse.Namespace) -> int:
     try:
         workspace = Path(args.workspace)
@@ -494,6 +795,7 @@ def _semantic_prepare(args: argparse.Namespace) -> int:
             source_selectors=tuple(args.source),
             selection=selection,
             purpose=args.purpose,
+            exclude_source_selectors=tuple(args.exclude_source),
         )
         _write(
             json.dumps(package, ensure_ascii=False, indent=2, sort_keys=True)
@@ -561,14 +863,7 @@ def _semantic_finalize(args: argparse.Namespace) -> int:
                 semantic_consent_digest=args.consent_digest,
             )
         ).graph
-        if args.format == "terminal":
-            rendered = render_terminal(graph)
-        elif args.format == "debug":
-            rendered = render_debug_terminal(graph)
-        elif args.format == "markdown":
-            rendered = render_markdown(graph)
-        else:
-            rendered = render_json(graph)
+        rendered = _render_semantic_graph(graph, args.format)
         _write(rendered, args.output)
         if not graph.get("sealed") or graph.get("run", {}).get("outcome") == "execution_failed":
             return EXIT_EXECUTION_FAILED
@@ -601,6 +896,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _model_spec(args)
     if args.command == "semantic" and args.semantic_command == "prepare":
         return _semantic_prepare(args)
+    if args.command == "semantic" and args.semantic_command == "run":
+        return _semantic_run(args)
     if args.command == "semantic" and args.semantic_command == "invoke":
         return _semantic_invoke(args)
     if args.command == "semantic" and args.semantic_command == "finalize":

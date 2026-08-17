@@ -14,7 +14,7 @@ measurement remain incomplete.
 ## Objective
 
 Complete the hybrid product: keep deterministic evidence collection and final
-adjudication local, add a qualified consented semantic analysis path, and make
+adjudication local, add a qualified exact-manifest semantic analysis path, and make
 diagnosis repeatable over time without silently disclosing or changing a
 user's Skill set.
 
@@ -31,14 +31,19 @@ and protected live-canary evidence remain open.
 - Materialize an exact disclosure manifest naming provider, model, purpose,
   minimized content handles, exclusions, retention/cache facts, and contract
   versions.
-- Require consent bound to that manifest digest; provider/model/content/purpose
-  changes invalidate consent and cache keys.
+- Bind every invocation to that manifest digest; an explicit one-shot semantic
+  diagnosis authorizes only its immediately generated manifest, while standalone
+  prepare/invoke retains explicit digest confirmation. Provider/model/content/
+  purpose changes invalidate authorization and cache keys.
 - Exclude secrets and script/executable bodies, validate adapter lifecycle and
   response schema, require citations to disclosed handles, and retain every
   accepted model statement as `inferred` evidence.
-- Use a deterministic bounded question plan, an isolated analyst, and a fresh-
-  context reversed-order critic. Panel disagreement must abstain; it is never
-  hidden through majority voting.
+- Use a deterministic bounded question plan, two blind analysts in parallel
+  with canonical/reversed source order, and a third fresh-context judge. A
+  judge-resolved disagreement is explicitly downgraded and can never become a
+  finding or pass merely by majority voting.
+- If exact inclusion/exclusion leaves fewer than two Skills, seal a
+  not-applicable status with zero provider calls; do not widen the user's scope.
 
 ### 06.2 Local adjudication into the sealed graph
 

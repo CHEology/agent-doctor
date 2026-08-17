@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agent-doctor"
-version = "0.2.0"
-description = "Offline-first Codex configuration diagnostics"
+version = "0.3.0"
+description = "Local-first Codex Skill diagnostics with consented semantic analysis"
 readme = "README.md"
 requires-python = ">=3.12"
 license = "MIT"

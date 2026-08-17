@@ -1,6 +1,6 @@
 ---
 name: agent-doctor
-description: Run and explain safe local Agent Doctor diagnostics for a workspace or installed Codex Skill set. Use when a user asks to inventory Skills, inspect configuration conflicts or coverage gaps, run a consented semantic comparison, interpret a sealed Agent Doctor result, inspect the reviewed OpenAI model-routing policy, compare repository changes with the Stage 01–06 contracts, or plan an evidence-based manual follow-up. Do not use it to claim runtime causality, perform undisclosed semantic inspection, treat a model recommendation as qualification, or apply repairs.
+description: Run and explain comprehensive local Agent Doctor diagnostics for a workspace or installed Codex Skill set, with bounded semantic analysis enabled by default, two blind parallel analysts, a fresh judge, and local final adjudication. Use when a user asks to inventory Skills, inspect configuration conflicts, trigger overlap, maintenance freshness, or coverage gaps, run a semantic comparison, interpret a sealed result, inspect model routing, compare Stage 01–06 contracts, or plan a manual follow-up. Do not use it to claim runtime causality, perform undisclosed semantic inspection, treat a model recommendation as qualification, or apply repairs.
 ---
 
 # Agent Doctor
@@ -18,7 +18,12 @@ never upgrade static filesystem evidence into runtime selection or causality.
    - add `--include-user` only when the user explicitly asks to inspect their
      user-level Skill set;
    - keep `--project-trust unknown` unless trust was independently established;
-   - never add `--include-system` merely to broaden coverage.
+   - never add `--include-system` merely to broaden coverage;
+   - keep semantic coverage enabled unless the user explicitly requests a
+     deterministic-only run;
+   - for semantic preparation, omit `--source` to use the bounded auto scope,
+     repeat `--source` to narrow it, and repeat `--exclude-source` to remove an
+     exact source.
 3. Prefer the installed `agent-doctor` command. From a source checkout, use
    `PYTHONPATH=src python3 -m agent_doctor` when the package is not installed.
 4. Use the default human-first terminal projection for interpretation. Use
@@ -38,6 +43,9 @@ never upgrade static filesystem evidence into runtime selection or causality.
    and manual next steps. Durable IDs remain in the technical-reference tail.
 6. Explain what is established, what is only a candidate, and what remains
    unknown. Keep execution failure separate from CI policy failure.
+7. Keep content health, static applicability, runtime selection, and causality
+   separate. Runtime selection may remain unobserved without turning every
+   completed content-health card into `unknown`.
 
 ## Interpret findings
 
@@ -50,12 +58,30 @@ never upgrade static filesystem evidence into runtime selection or causality.
   not active Skills, unless independent runtime evidence exists.
 - Describe `complete_with_gaps` as a usable partial result, not a clean bill of
   health.
+- For every displayed finding or candidate, show its judgment basis, assigned
+  or potential severity, confidence, representative cited source sentences
+  with exact locations, model-panel rationale when present, counterexample
+  state, and durable case ID. In a bounded terminal answer, show the three
+  highest-severity items and up to two representative lowest-severity items,
+  then state exact omitted item/excerpt counts; use Markdown/JSON for complete
+  detail.
+- Treat planned or unanswered semantic questions as pending coverage, never as
+  risks. Keep deterministic findings, locally adjudicated inferred findings,
+  and unconfirmed candidates visibly distinct.
+- Do not report a missing reference as `invalid_reference` when the declaring
+  Skill explicitly defines that resource as optional or provides a single-file
+  fallback contract. Explain the excluded suspicion or abstain if installation
+  intent remains ambiguous.
+- Interpret maintenance freshness only from an explicit version, rename,
+  supersession, or compatibility contract. Never use file age alone. Report
+  `insufficient_evidence` when a reference exists but no decisive freshness
+  contract is in scope, and `not_applicable` when no reference contract exists.
 - Keep repair advice proposal/manual-only. Never edit installed Skills as an
   implied continuation of diagnosis.
 
 ## Semantic boundary
 
-The CLI exposes a consented Codex Desktop semantic exchange. It is a
+The CLI exposes a manifest-bound Codex Desktop semantic exchange. It is a
 developmental, unqualified evidence path: it can produce a sealed local result,
 but it has not completed the Stage 04 measurement protocol and cannot support
 accuracy, calibration, usefulness, or release-readiness claims.
@@ -63,39 +89,49 @@ accuracy, calibration, usefulness, or release-readiness claims.
 Do not bypass the exchange by directly reading personal Skill bodies and
 calling an informal model opinion an Agent Doctor finding.
 
-For a request for a **comprehensive Skill health diagnosis**, do not stop after
-the deterministic scan. Prepare the semantic panel for the approved Skill
-scope, show the exact disclosure, and pause for digest-specific consent. If the
-user declines or has not yet consented, report semantic relationships as not
-completed; never silently downgrade that gap into a clean result.
+Semantic analysis is on by default. For a request for a **comprehensive Skill
+health diagnosis**, run the complete one-shot semantic workflow; do not stop
+after deterministic preparation and do not ask for a redundant second reply.
+The explicit diagnosis request authorizes only the immediately generated,
+minimized one-run manifest. Honor an explicit request to disable semantic
+analysis, narrow exact sources, or exclude exact sources. A plain `scan` is the
+deterministic projection and must report its unexecuted semantic panel as
+pending rather than a clean result.
 
 1. Confirm the requested semantic scope. If a phrase is unrelated, irrational
    in context, or looks like a voice-transcription artifact, ask the user to
    confirm it before adding a source, capability, or feature.
-2. Run semantic prepare with semantic mode enabled, the approved local scope,
-   and every exact Skill source location. This step calls no model.
-3. Show the user the exact manifest digest, provider, model, reasoning effort,
+2. For a comprehensive diagnosis, run `semantic run` with the approved local
+   scope and a durable `--artifact-dir`. With no `--source`, use the bounded
+   discovered non-inapplicable Skill scope. Use repeatable exact `--source` and
+   `--exclude-source` selectors when the user narrows or excludes content. If
+   fewer than two Skills remain, report cross-Skill semantic analysis as not
+   applicable and confirm that no provider call started; never broaden scope
+   silently just to create a pair.
+3. The one-shot operation completes deterministic preparation, records the exact
+   manifest/digest, launches analyst A and analyst B concurrently in separate
+   empty ephemeral contexts, validates both, launches a third fresh-context
+   judge, and locally finalizes the same sealed graph. Analyst B sees reversed
+   source order; neither analyst sees the other. All three ignore user/project
+   rules, request tool/web/app disabling, and are rejected if tool activity is
+   observed. No OpenAI API key is required.
+4. After completion, show the manifest digest, provider, model, reasoning effort,
    purpose, selected locations, disclosed claim counts, exclusions,
-   retention/cache statement, and qualification state. The manifest includes
-   only minimized claim excerpts. Secret-bearing sources and script bodies are
-   excluded.
-4. Require a new affirmative reply bound to that exact digest. A general
-   request to turn semantic mode on is not manifest-specific consent. If the
-   source revision, model, effort, provider, purpose, or content changes,
-   prepare a new manifest and request new consent.
-5. Only after exact consent, run semantic invoke with the package and consent
-   digest. It runs two isolated ephemeral signed-in Codex turns in empty
-   temporary directories: a bounded analyst, then a fresh-context critic that
-   reads the two sources in reversed order and actively attempts to refute each
-   answer. Both ignore user/project rules, request tool/web/app disabling, and
-   are rejected if tool activity is observed. No OpenAI API key is required.
-6. Run semantic finalize against the same local scope, package, invocation, and
-   exact consent digest. Render the resulting sealed graph in the requested
-   terminal, Markdown, or JSON projection.
-7. Treat both panel outputs only as cited inferred evidence. Local promotion
+   retention/cache statement, qualification state, and artifact locations. The
+   manifest includes only minimized claim excerpts, with trigger, delegation,
+   and negative-routing boundaries prioritized before generic prose.
+   Secret-bearing sources and script bodies are excluded.
+5. If the user specifically asks to inspect disclosure before any provider call,
+   use `semantic prepare`, show the package, then require exact-digest
+   confirmation before `semantic invoke` and `semantic finalize`. Source,
+   provider, model, effort, purpose, adapter, prompt, or content changes require
+   a new package and digest.
+6. Treat all three panel outputs only as cited inferred evidence. Local promotion
    requires the same frozen question/source/dimension identity, complete
-   citations, critic corroboration, excluded counterexamples, and no missing
-   evidence. Local rules retain final state, labels, independent diagnostic
+   citations, analyst consensus, judge corroboration, excluded counterexamples,
+   and no missing evidence. A judge-resolved analyst disagreement remains
+   visible and can be at most a candidate. Local rules retain final state,
+   labels, independent diagnostic
    dimensions, severity, confidence, recommendation compatibility,
    applicability qualifiers, grouping, and sealing. Recommendations are
    proposal/manual-only and cannot authorize a write. Never turn static Skill
@@ -118,8 +154,9 @@ exact and must not be silently replaced.
 Run `model check-official` only when the user asks to verify current official
 documentation and make the network boundary explicit first. A drift report
 creates a candidate review; it never promotes a model automatically. The
-Codex Desktop semantics are available only through the disclosure, consent,
-response-validation, and local-adjudication sequence above. They remain
+Codex Desktop semantics are available only through the disclosure, exact
+manifest authorization, response-validation, and local-adjudication sequence
+above. They remain
 unqualified until the Stage 04 measurement protocol is completed.
 
 ## Repository maintenance

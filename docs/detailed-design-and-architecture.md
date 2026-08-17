@@ -23,7 +23,8 @@ The PRD and taxonomy remain authoritative. In particular:
 
 - analysis is read-only by default;
 - deterministic diagnosis is local and offline;
-- semantic diagnosis is optional and explicitly disclosed;
+- semantic diagnosis runs by default for an explicit comprehensive diagnosis,
+  remains disableable/narrowable, and is exactly disclosed and digest-bound;
 - static evidence does not prove runtime selection or causality;
 - precision and explainability take priority over coverage;
 - `pass`, `finding`, `candidate`, `insufficient_evidence`, `not_run`, and
@@ -106,7 +107,8 @@ The system is a pipeline with a separate, capability-gated mutation path:
 
 ```text
 scope plan -> inventory -> parse/normalize -> deterministic resolution/rules
-                                              -> optional semantic analysis
+                                              -> default semantic planning
+                                              -> consented provider analysis
                          -> adjudication -> grouping -> result set -> render/CI
 
 selected findings -> repair proposal -> exact preview -> authorization check
@@ -250,7 +252,7 @@ removed, or redefined by a detector or provider.
 | Adjudicator | Apply ordered taxonomy procedure, counterexample check, multi-label rules, confidence/severity rules, and abstention. | Erase upstream errors or turn inference into observed/derived proof. |
 | Deduplicator and grouper | Compute stable case/group identities and consolidate one user problem across evidence locations. | Merge different questions, regions, or dimensions merely because files match. |
 | Result assembler | Validate invariants and seal the canonical result set with coverage and reproducibility metadata. | Re-run analysis during rendering. |
-| Terminal/Markdown/JSON renderers | Project the same result graph with channel-appropriate detail and secret-safe excerpts. | Change state, labels, severity, or coverage. |
+| Terminal/Markdown/JSON renderers | Project the same result graph with channel-appropriate detail and secret-safe excerpts. Rank review items without changing them; terminal shows the highest-severity items, representative lower-severity items, cited source text/model rationale/counterexample provenance, and explicit omitted counts, while Markdown/JSON retain complete detail. | Change state, labels, severity, or coverage; present an unasked or unanswered semantic question as a risk. |
 | CI policy evaluator | Evaluate a separately configured threshold against the sealed result and produce `satisfied`, `policy_failed`, or `execution_failed`. | Delete below-threshold findings from durable output or confuse policy failure with tool failure. |
 | Repair planner | Convert selected findings into an allowlisted, reversible exact proposal and verification plan. | Write, broaden targets, or propose an unsupported write as auto-applicable. |
 | Authorization service | Issue/import, validate, revoke, and expire bounded grants; bind exact confirmations to proposal digests. | Treat analysis/model consent as a grant or relax a target/operation boundary. |
@@ -291,8 +293,8 @@ state.
 ### 7.1 Offline deterministic diagnosis
 
 1. The coordinator constructs the proposed analysis scope, enumerating roots,
-   source types, exclusions, inspection limits, disabled semantic mode, and
-   read-only authority, and displays it before scanning.
+   source types, exclusions, inspection limits, semantic mode and selection
+   policy, and read-only authority, and displays it before scanning.
 2. The scope guard freezes the accepted scope and selected platform profile.
 3. Inventory enumerates every supported candidate and records discovered,
    ignored, shadowed, truncated, missing, unreadable, and excluded states.
@@ -308,32 +310,44 @@ state.
    isolation, counterexample check, and abstention rules.
 9. Equivalent cases are grouped losslessly. The assembler seals one result set,
    including coverage gaps and version metadata.
-10. Renderers and CI consume that result set. Semantic check families are
-    explicitly `not_run`, not pass.
+10. Renderers and CI consume that result set. A deterministic scan with no
+    provider panel reports enabled semantic work as pending execution; disabled
+    or unavailable semantic check families are explicitly `not_run`, never pass.
 
-### 7.2 Opt-in model-backed semantic diagnosis
+### 7.2 Default semantic planning and manifest-bound model diagnosis
 
 1. Deterministic discovery and resolution complete first.
-2. The semantic coordinator selects only unresolved, in-scope questions for
-   which semantic analysis is useful.
+2. The semantic coordinator plans unresolved, in-scope questions by default.
+   Exact inclusion/exclusion selectors can narrow the bounded auto scope.
 3. The content broker excludes credentials, detected secrets, executable
    scripts, unapproved bodies, unrelated referenced files, and non-decisive
    context. It creates content handles and minimized excerpts.
-4. Before transmission, the user receives a disclosure manifest naming the
-   provider, model/configuration identity where knowable, source locations,
-   excerpt/content categories, exclusions, purpose, and provider-side
-   retention/caching facts known to the adapter. Consent binds this manifest
-   digest and is separate from write authority.
-5. The provider receives a neutral request containing the frozen question,
+4. Before a standalone invocation, the user receives a disclosure manifest
+   naming the provider, model/configuration identity where knowable, source
+   locations, excerpt/content categories, exclusions, purpose, and provider-side
+   retention/caching facts known to the adapter. An explicit one-shot semantic
+   diagnosis instead authorizes only its immediately generated manifest and
+   records the same fields in local artifacts before provider start. Both paths
+   bind execution to the exact digest and remain separate from write authority.
+5. Two blind analysts run concurrently in isolated ephemeral contexts. They
+   receive the same frozen questions and evidence in canonical and reversed
+   source order, cannot see one another, and return one cited answer per question.
+6. After both answers validate, a third fresh-context judge receives the two
+   responses and disclosed handles. It records consensus, a resolved
+   disagreement, a challenge, or insufficient evidence without setting product
+   state, severity, confidence, provenance, or repair authority.
+7. Each provider request contains the frozen question,
    relevant claims and qualifiers, region/dimension context, permitted excerpts,
    taxonomy meanings needed for the task, and instruction to abstain. It does
    not receive arbitrary repository context or raw credentials.
-6. The adapter validates structure and citations to supplied handles. Returned
+8. The adapter validates structure, role/question joins, and citations to
+   supplied handles. Returned
    hypotheses are recorded as inferred evidence with provider, model, adapter,
    prompt-contract, request, and input-digest provenance.
-7. The local adjudicator—not the provider—assigns check state, labels,
-   qualifiers, severity, and confidence. It may reject, downgrade, or abstain.
-8. The sealed result includes both deterministic results and precise semantic
+9. The local adjudicator—not the provider—assigns check state, labels,
+   qualifiers, severity, and confidence. Only corroborated analyst consensus can
+   become decisive; a judge-resolved disagreement is at most a candidate.
+10. The sealed result includes both deterministic results and precise semantic
    coverage/outcomes.
 
 ### 7.3 Degraded, not-run, insufficient, and error behavior
@@ -530,12 +544,15 @@ Missing citations, invalid labels, prompt-echoed secrets, or schema failure make
 the response unusable and produce an error/redaction event, not a finding. The
 provider never emits an authorization or executable repair.
 
-### 9.3 Consent and provider policy
+### 9.3 Manifest authorization and provider policy
 
-Consent is affirmative and manifest-specific. The record contains no raw
-credential and cannot be reused after the provider, content set, or purpose
-changes. Provider-side retention, training, region, and caching behavior are
-disclosed when knowable; lack of knowledge is stated, not assumed safe.
+Authorization is affirmative and manifest-specific. An explicit one-shot
+semantic diagnosis authorizes only the immediately generated manifest; a
+standalone invocation requires exact digest confirmation. The record contains
+no raw credential and cannot be reused after the provider, content set, purpose,
+model, effort, adapter, or prompt contract changes. Provider-side retention,
+training, region, and caching behavior are disclosed when knowable; lack of
+knowledge is stated, not assumed safe.
 
 Cross-run semantic response caching is off by default. A future opt-in local
 cache may be added only if it is disclosed and keyed by provider/model,
@@ -802,7 +819,7 @@ scanner, request network access, alter scope, or authorize writes.
 | AD-03 | Represent platform behavior in versioned, attributable profiles. | Silent hard-coded discovery/precedence/budget assumptions become stale and falsely deterministic. |
 | AD-04 | Use immutable typed evidence with lineage. | Free-form explanations cannot prove which facts were observed, derived, or inferred. |
 | AD-05 | Complete deterministic analysis without provider dependencies. | A model-required core would violate offline and degraded-mode requirements. |
-| AD-06 | Gate semantic use with an exact disclosure manifest and treat outputs as inferred. | Blanket model consent and provider-direct findings violate minimization and evidence rules. |
+| AD-06 | Bind semantic use to an exact disclosure manifest, use two blind parallel analysts plus a fresh judge, and treat all outputs as inferred. | Blanket authorization, single-pass opinions, and provider-direct findings violate minimization, stability, and evidence rules. |
 | AD-07 | Centralize taxonomy adjudication after rule/provider evidence production. | Letting each detector invent final semantics creates inconsistent abstention and multi-label behavior. |
 | AD-08 | Separate repair proposal, authorization, apply, and rollback artifacts; bind confirmation to proposal digest. | A mutable plan or “fix selected findings” grant could silently expand writes. |
 | AD-09 | Use optimistic compare-before-write with source revision, identity, and path preconditions plus recorded post-images. | Blind writes or path-only checks can overwrite concurrent work or swapped targets. |
