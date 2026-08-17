@@ -1,0 +1,228 @@
+{
+  "schema_version": "agent-doctor-model-routing-test/0.1",
+  "suite_id": "agent-doctor-stage-06-model-routing",
+  "suite_version": "0.1.0",
+  "status": "reviewed",
+  "profile_id": "openai-model-capabilities-2026-08-17",
+  "cases": [
+    {
+      "id": "MR-001",
+      "title": "Advisory auto route uses the reviewed quality-first default",
+      "as_of": "2026-08-17",
+      "request": {
+        "capability": "codex.advisory_review",
+        "strategy": "auto"
+      },
+      "expected": {
+        "outcome": "selected",
+        "selected_model": "gpt-5.6-sol",
+        "reasoning_effort": "max",
+        "selection_source": "reviewed_profile_default",
+        "availability": "unverified",
+        "invocation_ready": false,
+        "fallback_used": false
+      },
+      "prohibited_outcomes": [
+        "Treat an unverified account model as callable",
+        "Infer ranking from a model identifier"
+      ]
+    },
+    {
+      "id": "MR-002",
+      "title": "Advisory default becomes callable when the account exposes it",
+      "as_of": "2026-08-17",
+      "request": {
+        "capability": "codex.advisory_review",
+        "strategy": "auto",
+        "available_models": ["gpt-5.6-sol"]
+      },
+      "expected": {
+        "outcome": "selected",
+        "selected_model": "gpt-5.6-sol",
+        "reasoning_effort": "max",
+        "availability": "available",
+        "qualification": "not_required_advisory",
+        "invocation_ready": true
+      },
+      "prohibited_outcomes": [
+        "Call the advisory route a product semantic qualification"
+      ]
+    },
+    {
+      "id": "MR-003",
+      "title": "Account list order does not decide which model is strongest",
+      "as_of": "2026-08-17",
+      "request": {
+        "capability": "codex.advisory_review",
+        "strategy": "auto",
+        "available_models": ["gpt-5.6-luna", "gpt-5.6-sol"]
+      },
+      "expected": {
+        "selected_model": "gpt-5.6-sol",
+        "availability": "available",
+        "availability_proves_ranking": false,
+        "invocation_ready": true
+      },
+      "prohibited_outcomes": [
+        "Select the first or lexicographically largest account model"
+      ]
+    },
+    {
+      "id": "MR-004",
+      "title": "An exact user pin overrides auto selection without substitution",
+      "as_of": "2026-08-17",
+      "request": {
+        "capability": "semantic.reasoning_balanced",
+        "strategy": "pinned",
+        "requested_model": "gpt-5.6-terra",
+        "reasoning_effort": "high",
+        "available_models": ["gpt-5.6-terra"]
+      },
+      "expected": {
+        "outcome": "selected",
+        "selected_model": "gpt-5.6-terra",
+        "reasoning_effort": "high",
+        "selection_source": "user_pin",
+        "fallback_used": false
+      },
+      "prohibited_outcomes": [
+        "Silently replace the pinned model"
+      ]
+    },
+    {
+      "id": "MR-005",
+      "title": "An unreviewed user pin is refused",
+      "as_of": "2026-08-17",
+      "request": {
+        "capability": "semantic.reasoning_quality_first",
+        "strategy": "pinned",
+        "requested_model": "future-model-unknown",
+        "available_models": ["future-model-unknown"]
+      },
+      "expected": {
+        "outcome": "not_selected",
+        "code": "model_not_reviewed_for_capability",
+        "selected_model": null,
+        "invocation_ready": false
+      },
+      "prohibited_outcomes": [
+        "Treat API availability as reviewed capability"
+      ]
+    },
+    {
+      "id": "MR-006",
+      "title": "Auto mode rejects a hidden exact-model override",
+      "as_of": "2026-08-17",
+      "request": {
+        "capability": "semantic.reasoning_quality_first",
+        "strategy": "auto",
+        "requested_model": "gpt-5.6-sol"
+      },
+      "expected": {
+        "outcome": "not_selected",
+        "code": "auto_model_override",
+        "invocation_ready": false
+      },
+      "prohibited_outcomes": [
+        "Record an exact pin as an automatic decision"
+      ]
+    },
+    {
+      "id": "MR-008",
+      "title": "Product semantic invocation remains blocked before qualification",
+      "as_of": "2026-08-17",
+      "request": {
+        "capability": "semantic.reasoning_quality_first",
+        "strategy": "auto",
+        "available_models": ["gpt-5.6-sol"],
+        "require_qualified": true
+      },
+      "expected": {
+        "outcome": "selected",
+        "selected_model": "gpt-5.6-sol",
+        "qualification": "not_performed",
+        "invocation_ready": false,
+        "blockers": ["model_not_qualified_for_product_semantics"]
+      },
+      "prohibited_outcomes": [
+        "Use an official recommendation as Stage 04 qualification evidence"
+      ]
+    },
+    {
+      "id": "MR-009",
+      "title": "Balanced semantic capability chooses Terra only when requested",
+      "as_of": "2026-08-17",
+      "request": {
+        "capability": "semantic.reasoning_balanced",
+        "strategy": "auto",
+        "available_models": ["gpt-5.6-sol", "gpt-5.6-terra"]
+      },
+      "expected": {
+        "selected_model": "gpt-5.6-terra",
+        "reasoning_effort": "medium",
+        "fallback_used": false
+      },
+      "prohibited_outcomes": [
+        "Use Terra as a silent quality-first fallback"
+      ]
+    },
+    {
+      "id": "MR-010",
+      "title": "High-volume semantic capability chooses Luna only when requested",
+      "as_of": "2026-08-17",
+      "request": {
+        "capability": "semantic.reasoning_high_volume",
+        "strategy": "auto",
+        "available_models": ["gpt-5.6-sol", "gpt-5.6-luna"]
+      },
+      "expected": {
+        "selected_model": "gpt-5.6-luna",
+        "reasoning_effort": "medium",
+        "fallback_used": false
+      },
+      "prohibited_outcomes": [
+        "Use Luna as a silent quality-first fallback"
+      ]
+    },
+    {
+      "id": "MR-014",
+      "title": "An expired review window prevents automatic selection",
+      "as_of": "2026-09-18",
+      "request": {
+        "capability": "codex.advisory_review",
+        "strategy": "auto",
+        "available_models": ["gpt-5.6-sol"]
+      },
+      "expected": {
+        "outcome": "not_selected",
+        "code": "profile_stale",
+        "selected_model": null,
+        "invocation_ready": false
+      },
+      "prohibited_outcomes": [
+        "Claim a stale recommendation is current"
+      ]
+    },
+    {
+      "id": "MR-015",
+      "title": "An unavailable default is not silently replaced",
+      "as_of": "2026-08-17",
+      "request": {
+        "capability": "semantic.reasoning_quality_first",
+        "strategy": "auto",
+        "available_models": ["gpt-5.6-terra", "gpt-5.6-luna"]
+      },
+      "expected": {
+        "outcome": "selected",
+        "selected_model": "gpt-5.6-sol",
+        "availability": "unavailable",
+        "invocation_ready": false,
+        "blockers": ["model_unavailable_to_account"],
+        "fallback_used": false
+      },
+      "prohibited_outcomes": [
+        "Substitute a cheaper model without explicit policy"
+      ]
+    }
+  ]
+}

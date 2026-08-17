@@ -25,12 +25,14 @@ def test_all_reviewed_goldens_execute_exactly_three_times() -> None:
     assert report_exit_code(report) == 0
 
 
-def test_catalog_executes_slice_and_reports_unsupported_scope() -> None:
+def test_catalog_executes_deterministic_and_semantic_slices_and_reports_repair_scope() -> None:
     report = run_suite(SuitePaths(CATALOG, SCHEMA, GOLDEN))
-    assert report["counts"] == {"passed": 83, "failed": 0, "unsupported": 49, "invalid": 0}
+    assert report["counts"] == {"passed": 101, "failed": 0, "unsupported": 31, "invalid": 0}
     assert report_exit_code(report) == 0
     unsupported = {item["id"] for item in report["cases"] if item["status"] == "unsupported"}
-    assert "S-SEM-001" in unsupported
+    passed = {item["id"] for item in report["cases"] if item["status"] == "passed"}
+    assert "S-SEM-001" in passed
+    assert "S-SEM-018" in passed
     assert "S-REP-030" in unsupported
     assert "S-CMP-008" in unsupported
 

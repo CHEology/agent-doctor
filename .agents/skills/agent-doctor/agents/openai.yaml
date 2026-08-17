@@ -1,0 +1,4 @@
+interface:
+  display_name: "Agent Doctor"
+  short_description: "Run and explain safe local Skill diagnostics"
+  default_prompt: "Use $agent-doctor to scan this workspace, explain the sealed findings, and keep semantic claims within the documented evidence boundary."

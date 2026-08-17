@@ -122,7 +122,7 @@ def materialize_inventory(case: dict[str, Any]) -> list[dict[str, Any]]:
         if generator.get("kind") != "skill_series":
             continue
         count = int(generator["count"])
-        observed = next(
+        observed: dict[str, Any] = next(
             (
                 item
                 for item in case["inputs"]["generators"]

@@ -7,7 +7,13 @@ from pathlib import Path
 from agent_doctor.canonical import canonical_json
 from agent_doctor.ci import CIPolicy, evaluate_ci, exit_code
 from agent_doctor.golden import execute
-from agent_doctor.render import render_json, render_markdown, render_terminal
+from agent_doctor.human import build_human_summary
+from agent_doctor.render import (
+    render_debug_terminal,
+    render_json,
+    render_markdown,
+    render_terminal,
+)
 
 
 def _golden(case_id: str) -> dict:
@@ -24,6 +30,9 @@ def test_all_renderers_project_without_mutating_or_losing_ids() -> None:
     json_graph = json.loads(render_json(graph))
     assert canonical_json(graph) == before
     assert json_graph == graph
+    assert "What needs attention" in terminal
+    assert "Skill health" in terminal
+    assert "Technical detail" in markdown
     for case in graph["interaction_cases"]:
         assert case["case_id"] in terminal
         assert case["case_id"] in markdown
@@ -31,6 +40,19 @@ def test_all_renderers_project_without_mutating_or_losing_ids() -> None:
         assert group["group_id"] in terminal
         assert group["group_id"] in markdown
         assert all(member in terminal and member in markdown for member in group["member_case_refs"])
+
+
+def test_human_projection_is_conservative_and_debug_projection_remains_available() -> None:
+    graph = _golden("G-003")
+    summary = build_human_summary(graph)
+    assert summary["issues"][0]["state"] == "candidate"
+    assert "scope_overlap" in summary["issues"][0]["labels"]
+    assert "semantic_relationships" in summary["health_cards"][0]["health_dimensions"]
+    assert summary["health_cards"][0]["health_dimensions"]["maintenance_freshness"] == "not_implemented"
+    assert "runtime" in summary["limitation"].lower()
+    debug = render_debug_terminal(graph)
+    assert "cases:" in debug
+    assert graph["interaction_cases"][0]["case_id"] in debug
 
 
 def test_ci_distinguishes_policy_and_execution_failure() -> None:

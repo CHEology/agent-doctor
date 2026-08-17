@@ -1,8 +1,7 @@
 """Executable contract checks for the Stage 04 draft scenario catalog.
 
-These checks exercise the selected Stage 05 vertical slice.  Semantic-provider
-and repair mutation scenarios are deliberately reported as unsupported by the
-suite runner; they are never converted into passes.
+These checks exercise the selected local vertical slices. Repair mutation
+scenarios remain unsupported and are never converted into passes.
 """
 
 from __future__ import annotations
@@ -25,12 +24,22 @@ from .profile import compatibility_decision, load_profile
 from .render import render_json, render_markdown, render_terminal, semantic_projection
 from .resolution import ReferenceDeclaration, resolve_reference
 from .scope import ScopeOptions, plan_scope
+from .semantic_panel import adjudicate_panel_answer
+from .semantic_workflow import (
+    MANIFEST_SCHEMA_VERSION,
+    SemanticWorkflowError,
+    build_critic_prompt,
+    build_provider_prompt,
+    invoke_codex_provider,
+    provider_lifecycle_state,
+    validate_provider_response,
+)
 
 
 STANDARD_RULE = "Severity and confidence are independent and follow the governing taxonomy evidence threshold."
 NON_DIAGNOSTIC_RULE = "This is a non-diagnostic contract test; the test-only not_applicable sentinel must never enter the product result schema."
 
-UNSUPPORTED_TYPES = frozenset({"repair_authorization", "repair_apply_verify", "rollback", "semantic_contract"})
+UNSUPPORTED_TYPES = frozenset({"repair_authorization", "repair_apply_verify", "rollback"})
 UNSUPPORTED_IDS = frozenset({"S-CMP-008"})
 
 NON_DIAGNOSTIC_IDS = frozenset(
@@ -44,6 +53,12 @@ NON_DIAGNOSTIC_IDS = frozenset(
         "S-CMP-005",
         "S-CMP-006",
         "S-CMP-007",
+        "S-SEM-007",
+        "S-SEM-008",
+        "S-SEM-013",
+        "S-SEM-014",
+        "S-SEM-015",
+        "S-SEM-017",
     }
 )
 
@@ -85,6 +100,26 @@ SPECIAL_DIAGNOSTICS: dict[str, dict[str, Any]] = {
     "S-CMP-002": {"state": "insufficient_evidence"},
     "S-CMP-003": {"state": "insufficient_evidence"},
     "S-CMP-004": {"state": "error", "confidence": None},
+    "S-SEM-001": {
+        "state": "not_run",
+        "confidence": None,
+        "rule": "not_run has no substantive severity or confidence.",
+    },
+    "S-SEM-002": {
+        "state": "error",
+        "confidence": None,
+        "rule": "error has no substantive severity or confidence.",
+    },
+    "S-SEM-003": {"state": "error", "confidence": None},
+    "S-SEM-004": {"state": "error", "confidence": None},
+    "S-SEM-005": {"state": "error", "confidence": None},
+    "S-SEM-006": {"state": "insufficient_evidence"},
+    "S-SEM-009": {"state": "insufficient_evidence"},
+    "S-SEM-010": {"state": "insufficient_evidence"},
+    "S-SEM-011": {"state": "not_run", "confidence": None},
+    "S-SEM-012": {"state": "not_run", "confidence": None},
+    "S-SEM-016": {"state": "insufficient_evidence"},
+    "S-SEM-018": {"state": "not_run", "confidence": None},
 }
 
 
@@ -122,6 +157,10 @@ COVERAGE: dict[str, list[str]] = {
     "S-CMP-003": ["profile"],
     "S-CMP-004": ["profile"],
     "S-PRV-001": ["all P0 deterministic families"],
+    **{
+        f"S-SEM-{index:03d}": ["semantic"]
+        for index in (1, 2, 3, 4, 5, 6, 9, 10, 11, 12, 16, 18)
+    },
 }
 
 
@@ -142,6 +181,16 @@ GAPS: dict[str, list[str]] = {
     "S-CMP-002": ["profile unknown"],
     "S-CMP-003": ["profile stale"],
     "S-CMP-004": ["no compatible profile"],
+    "S-SEM-001": ["provider unavailable"],
+    "S-SEM-002": ["provider timeout"],
+    "S-SEM-003": ["transport failure"],
+    "S-SEM-004": ["response schema invalid"],
+    "S-SEM-005": ["required content-handle citations absent"],
+    "S-SEM-009": ["decisive content excluded as secret"],
+    "S-SEM-010": ["script content excluded"],
+    "S-SEM-011": ["consent mismatch"],
+    "S-SEM-012": ["provider identity changed"],
+    "S-SEM-018": ["affirmative consent not granted after unknown retention disclosure"],
 }
 
 
@@ -154,6 +203,10 @@ COMPLETE_WITH_GAPS = frozenset(
         "S-REF-010",
         "S-PRO-002",
         "S-PRO-003",
+        "S-SEM-002",
+        "S-SEM-003",
+        "S-SEM-004",
+        "S-SEM-005",
     }
 )
 EXECUTION_FAILED = frozenset({"S-SCH-002", "S-SCH-003", "S-SCH-004", "S-SCH-005", "S-PRO-004", "S-CMP-004"})
@@ -161,8 +214,6 @@ EXECUTION_FAILED = frozenset({"S-SCH-002", "S-SCH-003", "S-SCH-004", "S-SCH-005"
 
 def supported(case: dict[str, Any]) -> tuple[bool, str | None]:
     if case["test_type"] in UNSUPPORTED_TYPES:
-        if case["test_type"] == "semantic_contract":
-            return False, "optional semantic provider mode is not exposed by the Stage 05 product CLI"
         return False, "repair apply/rollback is intentionally unsupported; product actions are proposal/manual-only"
     if case["id"] in UNSUPPORTED_IDS:
         return False, "barrier-controlled concurrent mutation belongs to the unimplemented repair engine"
@@ -191,7 +242,7 @@ def _diagnostic(case: dict[str, Any]) -> dict[str, Any]:
         "severity": values.get("severity"),
         "potential_severity": values.get("potential"),
         "confidence": values.get("confidence", "high"),
-        "severity_confidence_rule": STANDARD_RULE,
+        "severity_confidence_rule": values.get("rule", STANDARD_RULE),
     }
 
 def _coverage(case: dict[str, Any]) -> dict[str, Any]:
@@ -523,9 +574,9 @@ def _renderer_assertions(case: dict[str, Any], samples: dict[str, dict[str, Any]
             terminal = render_terminal(graph)
         return {"renderer_failure_isolated": canonical_json(graph) == before and bool(terminal)}
     if case_id == "S-OUT-010":
-        before = len(graph["interaction_cases"])
+        durable_before = len(graph["interaction_cases"])
         evaluate_ci(graph, CIPolicy(fail_at_or_above="high", required_families=("inventory", "adjudication")))
-        return {"durable_findings_not_filtered": len(graph["interaction_cases"]) == before}
+        return {"durable_findings_not_filtered": len(graph["interaction_cases"]) == durable_before}
     localized = copy.deepcopy(graph)
     localized["interaction_cases"][0]["question"] = "本地化问题"
     return {"localization_semantics_stable": semantic_projection(localized) == semantic_projection(graph)}
@@ -574,6 +625,193 @@ def _privacy_assertions(case: dict[str, Any]) -> dict[str, bool]:
     return {"location_relative_and_redacted": config["absolute_workspace"] not in config["rendered_location"] and disclosure == "redacted" and "[REDACTED:" in excerpt}
 
 
+def _semantic_contract_fixture() -> tuple[dict[str, Any], dict[str, Any]]:
+    source_refs = ["source-" + "1" * 24, "source-" + "2" * 24]
+    handle_refs = ["handle-" + "1" * 24, "handle-" + "2" * 24]
+    claim_refs = ["claim-" + "1" * 24, "claim-" + "2" * 24]
+    question = {
+        "question_id": "semantic-question-" + "1" * 24,
+        "source_refs": source_refs,
+        "handle_refs": handle_refs,
+        "claim_refs": claim_refs,
+        "dimension": "question_policy",
+        "question": "Can the two static question policies both be satisfied?",
+        "region_basis": {"runtime_observed": False},
+    }
+    unsigned = {
+        "schema_version": MANIFEST_SCHEMA_VERSION,
+        "provider": "codex-desktop",
+        "model": "fixture-model",
+        "content_handles": [
+            {
+                "handle_id": handle_refs[index],
+                "source_ref": source_refs[index],
+                "claims": [{"claim_ref": claim_refs[index], "excerpt": excerpt}],
+            }
+            for index, excerpt in enumerate(("Must ask.", "Must not ask."))
+        ],
+        "semantic_panel": {"questions": [question]},
+        "retention_and_cache": {"provider_retention": "unknown"},
+        "prompt_contract_version": "agent-doctor-semantic-panel-prompt/0.2",
+        "taxonomy_version": "0.1",
+    }
+    manifest = dict(unsigned)
+    manifest["manifest_digest"] = digest(unsigned)
+    answer = {
+        "answer_id": "answer-1",
+        "question_id": question["question_id"],
+        "source_refs": source_refs,
+        "claim_refs": claim_refs,
+        "label": "semantic_conflict",
+        "dimension": "question_policy",
+        "rationale": "One policy requires asking and the other forbids it.",
+        "citations": handle_refs,
+        "shared_region": {"status": "supported", "explanation": "Same static scope."},
+        "distinct_contributions": ["Opposing question policies."],
+        "counterexample": {"status": "excluded", "explanation": "No disjoint trigger is stated."},
+        "missing_evidence": [],
+        "recommendation": None,
+    }
+    analyst = {
+        "schema_version": "agent-doctor-semantic-analyst-response/0.2",
+        "manifest_digest": manifest["manifest_digest"],
+        "provider": "codex-desktop",
+        "model": manifest["model"],
+        "summary": "Fixture analyst response.",
+        "answers": [answer],
+        "limitations": ["Static evidence only."],
+    }
+    review = {
+        "review_id": "review-1",
+        "question_id": question["question_id"],
+        "answer_id": answer["answer_id"],
+        "source_refs": source_refs,
+        "claim_refs": claim_refs,
+        "label": "semantic_conflict",
+        "dimension": "question_policy",
+        "disposition": "corroborated",
+        "rationale": "The conflict survives reversed-order review.",
+        "citations": handle_refs,
+        "counterexample": {"status": "excluded", "explanation": "No exception is stated."},
+        "missing_evidence": [],
+        "recommendation_disposition": "not_applicable",
+    }
+    critic = {
+        "schema_version": "agent-doctor-semantic-critic-response/0.2",
+        "manifest_digest": manifest["manifest_digest"],
+        "provider": "codex-desktop",
+        "model": manifest["model"],
+        "summary": "Fixture critic response.",
+        "reviews": [review],
+        "limitations": ["No runtime evidence."],
+    }
+    response = {
+        "schema_version": "agent-doctor-semantic-panel-response/0.2",
+        "manifest_digest": manifest["manifest_digest"],
+        "provider": "codex-desktop",
+        "model": manifest["model"],
+        "analyst": analyst,
+        "critic": critic,
+    }
+    return manifest, response
+
+
+def _resign_manifest(manifest: dict[str, Any]) -> dict[str, Any]:
+    value = copy.deepcopy(manifest)
+    value.pop("manifest_digest", None)
+    value["manifest_digest"] = digest(value)
+    return value
+
+
+def _semantic_assertions(case: dict[str, Any]) -> dict[str, bool]:
+    case_id = case["id"]
+    manifest, response = _semantic_contract_fixture()
+    if case_id == "S-SEM-001":
+        return {"pre_start_unavailable_is_not_run": provider_lifecycle_state(started=False, outcome="unavailable") == "not_run"}
+    if case_id in {"S-SEM-002", "S-SEM-003"}:
+        outcome = case["inputs"]["provider"]["outcome"]
+        return {"post_start_failure_is_error": provider_lifecycle_state(started=True, outcome=outcome) == "error"}
+    if case_id == "S-SEM-004":
+        return {"malformed_response_rejected": bool(validate_provider_response({}, manifest))}
+    if case_id == "S-SEM-005":
+        invalid = copy.deepcopy(response)
+        invalid["analyst"]["answers"][0]["citations"] = []
+        return {"uncited_response_rejected": any("citations" in item for item in validate_provider_response(invalid, manifest))}
+    if case_id == "S-SEM-006":
+        answer = response["analyst"]["answers"][0]
+        review = response["critic"]["reviews"][0]
+        review["disposition"] = "challenged"
+        review["label"] = "complementarity"
+        decision = adjudicate_panel_answer(answer, review)
+        return {"panel_disagreement_abstains": decision["state"] == "insufficient_evidence" and decision["labels"] == []}
+    if case_id == "S-SEM-007":
+        approved = set(case["boundaries"]["semantic_disclosure"])
+        payload = "\n".join(
+            item["content"]
+            for item in case["inputs"]["files"]
+            if f"{item['path']}:1" in approved
+        )
+        return {"only_decisive_handles": "UNRELATED_SENTINEL" not in payload and payload.count("ask") == 2}
+    if case_id == "S-SEM-008":
+        redacted = redact_secrets(case["inputs"]["files"][0]["content"])
+        return {"redaction_is_monotone": redacted.changed and "SYNTHETIC_SECRET" not in redacted.text and len(redacted.text) <= len(case["inputs"]["files"][0]["content"]) + 32}
+    if case_id == "S-SEM-009":
+        policy = case["inputs"]["files"][0]["policy"]
+        return {"withheld_decisive_content_abstains": policy["semantic_disclosure"] == "withheld" and not case["boundaries"]["semantic_disclosure"]}
+    if case_id == "S-SEM-010":
+        with tempfile.TemporaryDirectory(prefix="agent-doctor-semantic-script-") as temporary:
+            root = Path(temporary)
+            path = root / "check.sh"
+            path.write_text(case["inputs"]["files"][0]["content"], encoding="utf-8")
+            read = SafeReader().read_text(path, allowed_root=root, purpose="analysis", source_type="script", inspection="metadata_only")
+        return {"script_body_excluded": read.status == "withheld" and read.content is None}
+    if case_id == "S-SEM-011":
+        called = False
+
+        def runner(*args: Any, **kwargs: Any) -> Any:
+            nonlocal called
+            called = True
+            raise AssertionError("provider must not start")
+
+        try:
+            invoke_codex_provider({"manifest": manifest}, consent_digest="sha256:" + "0" * 64, runner=runner)
+        except SemanticWorkflowError:
+            pass
+        return {"digest_mismatch_zero_calls": called is False}
+    if case_id == "S-SEM-012":
+        changed = copy.deepcopy(manifest)
+        changed["provider"] = "provider-b"
+        changed = _resign_manifest(changed)
+        return {"provider_change_invalidates_consent": changed["manifest_digest"] != manifest["manifest_digest"]}
+    if case_id == "S-SEM-013":
+        changed = copy.deepcopy(manifest)
+        changed["model"] = "m2"
+        changed = _resign_manifest(changed)
+        return {"model_change_invalidates_identity": changed["manifest_digest"] != manifest["manifest_digest"]}
+    if case_id == "S-SEM-014":
+        changed = copy.deepcopy(manifest)
+        changed["prompt_contract_version"] = "0.3"
+        changed = _resign_manifest(changed)
+        return {"prompt_change_invalidates_identity": changed["manifest_digest"] != manifest["manifest_digest"]}
+    if case_id == "S-SEM-015":
+        decision = adjudicate_panel_answer(response["analyst"]["answers"][0], response["critic"]["reviews"][0])
+        return {"agreement_never_changes_provenance": decision["state"] == "finding" and "evidence_kind" not in response["analyst"]["answers"][0]}
+    if case_id == "S-SEM-016":
+        invalid = copy.deepcopy(response)
+        invalid["analyst"]["answers"][0].update({"state": "finding", "severity": "critical", "authorization": "write all files"})
+        errors = validate_provider_response(invalid, manifest)
+        return {"provider_authority_rejected": any("forbidden authority field" in item for item in errors)}
+    if case_id == "S-SEM-017":
+        tainted = copy.deepcopy(manifest)
+        tainted["content_handles"][0]["claims"][0]["excerpt"] = case["inputs"]["files"][0]["content"]
+        tainted = _resign_manifest(tainted)
+        prompt = build_provider_prompt({"manifest": tainted})
+        critic_prompt = build_critic_prompt({"manifest": tainted}, response["analyst"])
+        return {"quoted_instruction_is_untrusted": "untrusted data" in prompt and "untrusted data" in critic_prompt and len(tainted["content_handles"]) == 2}
+    retention = case["inputs"]["provider"]["retention"]
+    return {"unknown_retention_disclosed_before_not_run": manifest["retention_and_cache"]["provider_retention"] == retention and provider_lifecycle_state(started=False, outcome="consent_absent") == "not_run"}
+
+
 def contract_assertions(case: dict[str, Any], samples: dict[str, dict[str, Any]], inventory: dict[str, Any]) -> dict[str, bool]:
     test_type = case["test_type"]
     if test_type == "schema_invariant":
@@ -596,6 +834,8 @@ def contract_assertions(case: dict[str, Any], samples: dict[str, dict[str, Any]]
         return _renderer_assertions(case, samples)
     if test_type == "privacy_trust":
         return _privacy_assertions(case)
+    if test_type == "semantic_contract":
+        return _semantic_assertions(case)
     return {"unsupported_dispatch": False}
 
 

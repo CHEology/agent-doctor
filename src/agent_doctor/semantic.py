@@ -1,7 +1,7 @@
-"""Strict, local-only semantic contract used by synthetic qualification cases.
+"""Strict local scripted semantic contract used by synthetic Stage 04 cases.
 
-The Stage 05 product CLI does not expose semantic analysis.  This module exists
-for the reviewed Stage 04 synthetic fixtures and deliberately has no network
+The production Codex Desktop exchange lives in semantic_workflow. This module
+remains isolated so deterministic fixture qualification has no network
 adapter, credentials, or cross-run cache.
 """
 

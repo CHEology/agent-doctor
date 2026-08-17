@@ -26,6 +26,13 @@ from .resolution import (
     resolve_reference,
 )
 from .scope import ResolvedScope, ScopeOptions, plan_scope
+from .semantic_panel import adjudicate_panel_answer, recommendation_is_compatible
+from .semantic_workflow import (
+    response_digest as semantic_response_digest,
+    validate_manifest_against_graph,
+    validate_manifest_digest,
+    validate_provider_response,
+)
 from .types import CheckState, EvidenceKind, SourceStatus, SourceType
 from .version import GROUPING_VERSION, NORMALIZATION_VERSION, RULE_SET_VERSION
 
@@ -39,6 +46,10 @@ class AnalysisRequest:
     project_trust: str = "unknown"
     semantic_mode: str = "disabled"
     profile_path: Path | None = None
+    semantic_manifest: dict[str, Any] | None = None
+    semantic_invocation: dict[str, Any] | None = None
+    semantic_response: dict[str, Any] | None = None
+    semantic_consent_digest: str | None = None
 
 
 @dataclass(frozen=True)
@@ -232,7 +243,10 @@ def _read_and_parse(state: _PipelineState) -> None:
         )
         state.source_evidence[current.source_id] = source_evidence
 
-        if current.status == SourceStatus.UNREADABLE.value and candidate.status == SourceStatus.DISCOVERED.value:
+        if current.status == SourceStatus.UNREADABLE.value and candidate.status in {
+            SourceStatus.DISCOVERED.value,
+            SourceStatus.UNREADABLE.value,
+        }:
             _add_case(
                 state,
                 check_id="deterministic.source.readability",
@@ -279,15 +293,108 @@ def _read_and_parse(state: _PipelineState) -> None:
     state.candidates = updated
 
     inventory_evidence = tuple(sorted(state.source_evidence.values()))
-    state.builder.add_check(
-        check_id="deterministic.inventory.complete",
-        family="inventory",
-        question="Were all supported candidates in the frozen discovery scope retained in inventory?",
-        state=CheckState.PASS.value,
-        reason={"code": "inventory_retained", "source_count": len(state.candidates)},
-        evidence_refs=inventory_evidence,
-        input_revisions=tuple(sorted(item.revision or item.status for item in state.candidates)),
-    )
+    coverage_gaps = [
+        item
+        for item in state.candidates
+        if bool((item.provenance or {}).get("coverage_gap"))
+    ]
+    if coverage_gaps:
+        source_refs = tuple(sorted(item.source_id for item in coverage_gaps))
+        evidence_refs = tuple(state.source_evidence[source_ref] for source_ref in source_refs)
+        has_unreadable = any(item.status == SourceStatus.UNREADABLE.value for item in coverage_gaps)
+        _add_case(
+            state,
+            check_id="deterministic.inventory.complete",
+            family="inventory",
+            question="Were all supported candidates in the frozen discovery scope retained in inventory?",
+            check_state=CheckState.ERROR.value if has_unreadable else CheckState.INSUFFICIENT_EVIDENCE.value,
+            reason={
+                "code": "inventory_coverage_gap",
+                "gap_count": len(coverage_gaps),
+                "statuses": sorted({item.status for item in coverage_gaps}),
+                "expected": True,
+            },
+            source_refs=source_refs,
+            dimension="inventory_coverage",
+            confidence=None if has_unreadable else "high",
+            evidence_refs=evidence_refs,
+            counterexample={
+                "considered": "The omitted portion may contain no additional Skills.",
+                "excluded": False,
+                "basis": "The bounded discovery operation could not establish that proposition.",
+            },
+            completeness="partial",
+        )
+    else:
+        state.builder.add_check(
+            check_id="deterministic.inventory.complete",
+            family="inventory",
+            question="Were all supported candidates in the frozen discovery scope retained in inventory?",
+            state=CheckState.PASS.value,
+            reason={"code": "inventory_retained", "source_count": len(state.candidates)},
+            evidence_refs=inventory_evidence,
+            input_revisions=tuple(sorted(item.revision or item.status for item in state.candidates)),
+        )
+
+
+def _local_observed_applicability_checks(state: _PipelineState) -> None:
+    """Keep local cache/store presence separate from runtime activation."""
+
+    grouped: dict[str, list[SourceCandidate]] = {}
+    for candidate in state.candidates:
+        if candidate.source_type != SourceType.SKILL_BODY.value or candidate.status != SourceStatus.DISCOVERED.value:
+            continue
+        if (candidate.effective_scope or {}).get("state") != "unknown":
+            continue
+        if (candidate.provenance or {}).get("inventory_basis") != "local_filesystem_observation":
+            continue
+        scope_kind = str((candidate.effective_scope or {}).get("scope_kind", "local_observed_skill"))
+        grouped.setdefault(scope_kind, []).append(candidate)
+
+    for scope_kind, candidates in sorted(grouped.items()):
+        source_refs = tuple(sorted(item.source_id for item in candidates))
+        evidence_refs = tuple(state.source_evidence[source_ref] for source_ref in source_refs)
+        action = state.builder.add_next_action(
+            kind="evidence_request",
+            summary=(
+                f"Compare the {len(candidates)} locally observed {scope_kind} Skill artifacts with an active "
+                "Codex skill catalogue before treating them as runtime-selected."
+            ),
+            bounds={
+                "source_refs": list(source_refs),
+                "operation": "manual_catalogue_comparison",
+                "runtime_causality": False,
+                "automatic_apply": False,
+            },
+        )
+        _add_case(
+            state,
+            check_id="deterministic.skill.local-observed-applicability",
+            family="applicability",
+            question=f"Are the {scope_kind} Skill artifacts active in the current Codex runtime?",
+            check_state=CheckState.INSUFFICIENT_EVIDENCE.value,
+            reason={
+                "code": "local_inventory_does_not_prove_runtime_activation",
+                "observed_count": len(candidates),
+                "runtime_selection_observed": False,
+                "expected": True,
+            },
+            source_refs=source_refs,
+            region={
+                "paths": ["observed-scope://" + re.sub(r"[^a-z0-9]+", "-", scope_kind.casefold()).strip("-")],
+                "intersection": "unknown",
+                "runtime_observed": False,
+            },
+            dimension="applicability",
+            confidence="high",
+            evidence_refs=evidence_refs,
+            counterexample={
+                "considered": "Every cached or locally stored artifact may be active.",
+                "excluded": False,
+                "basis": "Static filesystem presence does not establish current runtime selection.",
+            },
+            next_action_refs=(action,),
+        )
 
 
 def _metadata_checks(state: _PipelineState) -> None:
@@ -410,6 +517,11 @@ def _duplicate_checks(state: _PipelineState) -> None:
     by_name: dict[str, list[tuple[SourceCandidate, ParsedSource, str]]] = {}
     for candidate in state.candidates:
         if candidate.source_type != SourceType.SKILL_BODY.value or candidate.status != SourceStatus.DISCOVERED.value:
+            continue
+        if (candidate.effective_scope or {}).get("state") != "applicable":
+            # Supplemental Codex-home and plugin-cache artifacts are useful
+            # inventory, but cannot support a runtime duplicate/selection
+            # conclusion until applicability is independently established.
             continue
         parsed = state.parsed.get(candidate.source_id)
         content = state.snapshots.get(candidate.source_id)
@@ -670,7 +782,65 @@ def _reference_checks(state: _PipelineState) -> None:
                 )
                 continue
 
+            if resolution.status == "valid_directory":
+                assert resolution.target_path is not None and resolution.normalized_target is not None
+                resource = _add_resource_record(
+                    state,
+                    declaration_source=candidate,
+                    target=resolution.target_path,
+                    display=resolution.normalized_target,
+                    status=SourceStatus.DISCOVERED.value,
+                    reason=resolution.reason,
+                )
+                state.builder.add_check(
+                    check_id="deterministic.reference.validity",
+                    family="references",
+                    question=question,
+                    state=CheckState.PASS.value,
+                    reason={"code": "reference_directory_valid"},
+                    evidence_refs=(
+                        declaration_evidence,
+                        resolution_evidence,
+                        state.source_evidence[resource.source_id],
+                    ),
+                    input_revisions=(candidate.revision or "unknown",),
+                )
+                continue
+
             assert resolution.target_path is not None and resolution.normalized_target is not None
+            if resolution.target_path.suffix.casefold() in {
+                ".avif",
+                ".gif",
+                ".ico",
+                ".jpeg",
+                ".jpg",
+                ".pdf",
+                ".png",
+                ".svg",
+                ".webp",
+            }:
+                resource = _add_resource_record(
+                    state,
+                    declaration_source=candidate,
+                    target=resolution.target_path,
+                    display=resolution.normalized_target,
+                    status=SourceStatus.DISCOVERED.value,
+                    reason="supported non-text resource resolved inside scope; content was not parsed as text",
+                )
+                state.builder.add_check(
+                    check_id="deterministic.reference.validity",
+                    family="references",
+                    question=question,
+                    state=CheckState.PASS.value,
+                    reason={"code": "reference_non_text_resource_valid"},
+                    evidence_refs=(
+                        declaration_evidence,
+                        resolution_evidence,
+                        state.source_evidence[resource.source_id],
+                    ),
+                    input_revisions=(candidate.revision or "unknown",),
+                )
+                continue
             target_read = state.reader.read_text(
                 resolution.target_path,
                 allowed_root=candidate.allowed_root,
@@ -807,12 +977,13 @@ def _configuration_precedence_checks(state: _PipelineState) -> dict[str, Any]:
         excerpt="CLI > trusted project closest > profile > user > system > built-in",
     )
     for key in unknown_keys:
+        safe_key, _, _ = minimize_excerpt(key, limit=200)
         source_refs = tuple(sorted(item.source_ref for item in all_values[key]))
         parents = tuple(state.source_evidence[source_ref] for source_ref in source_refs)
         derived = state.builder.add_evidence(
             kind=EvidenceKind.DERIVED.value,
             producer=f"precedence-resolver@{RULE_SET_VERSION}",
-            summary=f"Effective value for {key} is unknown because project trust is unknown.",
+            summary=f"Effective value for {safe_key} is unknown because project trust is unknown.",
             source_refs=source_refs,
             parent_evidence_refs=parents + (profile_evidence,),
             rule_or_provider={"rule_id": "codex.config.trust-gated-precedence@0.1"},
@@ -821,23 +992,24 @@ def _configuration_precedence_checks(state: _PipelineState) -> dict[str, Any]:
         action = state.builder.add_next_action(
             kind="evidence_request",
             summary="Rerun with --project-trust trusted or --project-trust untrusted after verifying Codex trust state.",
-            bounds={"key": key, "accepted_values": ["trusted", "untrusted"]},
+            bounds={"key": safe_key, "accepted_values": ["trusted", "untrusted"]},
         )
         _add_case(
             state,
             check_id="deterministic.configuration.precedence",
             family="precedence",
-            question=f"Which configuration value governs {key}?",
+            question=f"Which configuration value governs {safe_key}?",
             check_state=CheckState.INSUFFICIENT_EVIDENCE.value,
             reason={"code": "project_trust_unknown", "missing_evidence": "Codex project trust state", "expected": True},
             source_refs=source_refs,
-            dimension=f"configuration:{key}",
+            dimension=f"configuration:{safe_key}",
             confidence="high",
             evidence_refs=parents + (profile_evidence, derived),
             counterexample={"considered": "The closest project file wins.", "excluded": False, "basis": "Project layers are skipped when untrusted, and trust was not supplied."},
             next_action_refs=(action,),
         )
     for key, values in all_values.items():
+        safe_key, _, _ = minimize_excerpt(key, limit=200)
         effective_values = [item for item in values if item.applicability == "applicable"]
         if len(effective_values) < 2 or key not in winners:
             continue
@@ -847,7 +1019,7 @@ def _configuration_precedence_checks(state: _PipelineState) -> dict[str, Any]:
                 claim.claim_id
                 for source_ref in source_refs
                 for claim in state.parsed[source_ref].claims
-                if claim.dimension == f"configuration:{key}"
+                if claim.dimension == f"configuration:{safe_key}"
             )
         )
         parents = tuple(state.source_evidence[source_ref] for source_ref in source_refs)
@@ -855,7 +1027,7 @@ def _configuration_precedence_checks(state: _PipelineState) -> dict[str, Any]:
         derived = state.builder.add_evidence(
             kind=EvidenceKind.DERIVED.value,
             producer=f"precedence-resolver@{RULE_SET_VERSION}",
-            summary=f"Configuration key {key} is governed by {winner.source_ref} under the reviewed layer order.",
+            summary=f"Configuration key {safe_key} is governed by {winner.source_ref} under the reviewed layer order.",
             source_refs=source_refs,
             parent_evidence_refs=parents + (profile_evidence,),
             rule_or_provider={"rule_id": "codex.config.layer-precedence@0.1"},
@@ -866,13 +1038,13 @@ def _configuration_precedence_checks(state: _PipelineState) -> dict[str, Any]:
             state,
             check_id="deterministic.configuration.precedence",
             family="precedence",
-            question=f"Which effective source governs configuration key {key}?",
+            question=f"Which effective source governs configuration key {safe_key}?",
             check_state=CheckState.PASS.value,
             reason={"code": "precedence_resolved", "winner_source_ref": winner.source_ref},
             source_refs=source_refs,
             claim_refs=claim_refs,
             region=region,
-            dimension=f"configuration:{key}",
+            dimension=f"configuration:{safe_key}",
             labels=("precedence_override",),
             severity="info",
             confidence="high",
@@ -957,6 +1129,7 @@ def _skill_budget_abstention(state: _PipelineState) -> None:
         for item in state.candidates
         if item.source_type == SourceType.SKILL_BODY.value
         and item.status == SourceStatus.DISCOVERED.value
+        and (item.effective_scope or {}).get("state") == "applicable"
         and item.source_id in state.parsed
     ]
     if not skills:
@@ -999,7 +1172,7 @@ def _skill_budget_abstention(state: _PipelineState) -> None:
     )
 
 
-def _semantic_coverage(state: _PipelineState) -> None:
+def _semantic_coverage(state: _PipelineState, request: AnalysisRequest) -> None:
     mode_evidence = state.builder.add_evidence(
         kind=EvidenceKind.OBSERVED.value,
         producer="session-coordinator@0.1",
@@ -1019,6 +1192,498 @@ def _semantic_coverage(state: _PipelineState) -> None:
             dimension="semantic_coverage",
             evidence_refs=(mode_evidence,),
             counterexample={"considered": "No relationship was found.", "excluded": True, "basis": "The check never started."},
+        )
+        return
+
+    manifest = request.semantic_manifest
+    response = request.semantic_response
+    invocation = request.semantic_invocation
+    consent_digest = request.semantic_consent_digest
+    if manifest is None or response is None or invocation is None:
+        _add_case(
+            state,
+            check_id="semantic.skill.relationship",
+            family="semantic",
+            question="Was a consented semantic Skill relationship response available?",
+            check_state=CheckState.NOT_RUN.value,
+            reason={
+                "code": "semantic_submission_pending",
+                "expected": True,
+                "required": [
+                    "exact disclosure manifest",
+                    "digest-bound consent",
+                    "validated provider invocation",
+                    "provider response",
+                ],
+            },
+            source_refs=(),
+            dimension="semantic_coverage",
+            evidence_refs=(mode_evidence,),
+            counterexample={
+                "considered": "No semantic relationship exists.",
+                "excluded": True,
+                "basis": "The provider check did not start, so absence was not tested.",
+            },
+        )
+        return
+
+    manifest_errors = validate_manifest_digest(manifest)
+    expected_digest = manifest.get("manifest_digest")
+    if consent_digest != expected_digest:
+        manifest_errors.append(
+            "consent digest does not exactly match the disclosure manifest"
+        )
+    current_graph = state.builder.to_unsealed_dict("complete_with_gaps")
+    manifest_errors.extend(validate_manifest_against_graph(manifest, current_graph))
+    if manifest_errors:
+        current_source_refs = {
+            item.source_id for item in state.builder.sources
+        }
+        _add_case(
+            state,
+            check_id="semantic.skill.relationship",
+            family="semantic",
+            question="Could the disclosed semantic request start against the current inputs?",
+            check_state=CheckState.NOT_RUN.value,
+            reason={
+                "code": "semantic_manifest_or_consent_invalid",
+                "expected": True,
+                "detail": sorted(set(manifest_errors)),
+            },
+            source_refs=tuple(
+                sorted(
+                    current_source_refs.intersection(
+                        manifest.get("source_selection", {}).get(
+                            "selected_source_refs", []
+                        )
+                    )
+                )
+            ),
+            dimension="semantic_coverage",
+            evidence_refs=(mode_evidence,),
+            counterexample={
+                "considered": "The prior response may still describe current content.",
+                "excluded": False,
+                "basis": "Content or consent identity must match exactly; it is never guessed.",
+            },
+            completeness="partial",
+        )
+        return
+
+    invocation_errors: list[str] = []
+    if invocation.get("status") != "completed":
+        invocation_errors.append("provider invocation did not complete")
+    if invocation.get("consent_manifest_digest") != expected_digest:
+        invocation_errors.append("provider invocation consent identity mismatch")
+    if invocation.get("provider") != manifest.get("provider"):
+        invocation_errors.append("provider invocation identity mismatch")
+    if invocation.get("model") != manifest.get("model"):
+        invocation_errors.append("provider invocation model identity mismatch")
+    if invocation.get("reasoning_effort") != manifest.get("reasoning_effort"):
+        invocation_errors.append("provider invocation effort identity mismatch")
+    if invocation.get("selection_digest") != manifest.get("selection", {}).get(
+        "selection_digest"
+    ):
+        invocation_errors.append("provider invocation selection identity mismatch")
+    if invocation.get("response_digest") != semantic_response_digest(response):
+        invocation_errors.append("provider invocation response digest mismatch")
+    if invocation.get("tool_activity_observed"):
+        invocation_errors.append("provider invocation used a forbidden tool")
+    calls = invocation.get("calls")
+    if (
+        not isinstance(calls, list)
+        or len(calls) != 2
+        or [item.get("role") for item in calls if isinstance(item, dict)]
+        != ["analyst", "critic"]
+        or any(
+            not isinstance(item, dict)
+            or item.get("fresh_ephemeral_context") is not True
+            for item in calls or []
+        )
+    ):
+        invocation_errors.append(
+            "provider invocation did not establish two fresh panel contexts"
+        )
+    elif calls[0].get("source_order") != "canonical" or calls[1].get(
+        "source_order"
+    ) != "reversed":
+        invocation_errors.append("provider invocation panel source order mismatch")
+    response_errors = validate_provider_response(response, manifest)
+    errors = sorted(set(invocation_errors + response_errors))
+    selected_refs = tuple(
+        sorted(
+            manifest.get("source_selection", {}).get(
+                "selected_source_refs", []
+            )
+        )
+    )
+    parent_source_evidence = tuple(
+        state.source_evidence[source_ref]
+        for source_ref in selected_refs
+        if source_ref in state.source_evidence
+    )
+    if errors:
+        call = dict(invocation)
+        call["status"] = "unusable"
+        call["response_validation"] = errors
+        state.builder.semantic_calls.append(call)
+        _add_case(
+            state,
+            check_id="semantic.skill.relationship",
+            family="semantic",
+            question="Did the started semantic provider call return usable cited evidence?",
+            check_state=CheckState.ERROR.value,
+            reason={
+                "code": "semantic_provider_response_unusable",
+                "expected": True,
+                "detail": errors,
+            },
+            source_refs=selected_refs,
+            dimension="semantic_coverage",
+            evidence_refs=(mode_evidence,) + parent_source_evidence,
+            counterexample={
+                "considered": "The malformed output may contain a correct opinion.",
+                "excluded": False,
+                "basis": "Unvalidated or overreaching provider output is never product evidence.",
+            },
+            completeness="partial",
+        )
+        return
+
+    call = dict(invocation)
+    call["response_validation"] = "valid"
+    call["evidence_kind"] = EvidenceKind.INFERRED.value
+    call["local_final_adjudication"] = True
+    state.builder.semantic_calls.append(call)
+    analyst = response["analyst"]
+    critic = response["critic"]
+    summary_excerpt = minimize_excerpt(
+        f"Analyst: {analyst['summary']} Critic: {critic['summary']}", limit=480
+    )[0]
+    response_evidence = state.builder.add_evidence(
+        kind=EvidenceKind.INFERRED.value,
+        producer="codex-desktop-semantic-panel@0.2",
+        summary=summary_excerpt,
+        source_refs=selected_refs,
+        parent_evidence_refs=parent_source_evidence,
+        rule_or_provider={
+            "source_kind": "model",
+            "provider": manifest["provider"],
+            "model": manifest["model"],
+            "reasoning_effort": manifest["reasoning_effort"],
+            "consent_manifest_digest": expected_digest,
+            "selection_digest": manifest["selection"]["selection_digest"],
+            "qualification": manifest["qualification"],
+        },
+        disclosure="excerpt",
+        excerpt=summary_excerpt,
+    )
+    state.builder.add_check(
+        check_id="semantic.provider.response",
+        family="semantic",
+        question="Did the consented semantic provider return a valid bounded response?",
+        state=CheckState.PASS.value,
+        reason={
+            "code": "semantic_provider_response_valid",
+            "question_count": len(analyst["answers"]),
+            "critic_review_count": len(critic["reviews"]),
+            "release_qualified": manifest["qualification"]["release_qualified"],
+        },
+        evidence_refs=(mode_evidence, response_evidence),
+        input_revisions=tuple(
+            item["revision"] for item in manifest["content_handles"]
+        ),
+    )
+
+    coverage = manifest.get("semantic_panel", {}).get("coverage", {})
+    if not coverage.get("complete", False):
+        _add_case(
+            state,
+            check_id="semantic.skill.relationship-coverage",
+            family="semantic",
+            question="Did the bounded semantic panel cover every eligible pair and dimension?",
+            check_state=CheckState.INSUFFICIENT_EVIDENCE.value,
+            reason={
+                "code": "bounded_semantic_question_limit",
+                "expected": True,
+                "eligible_question_count": coverage.get("eligible_question_count"),
+                "emitted_question_count": coverage.get("emitted_question_count"),
+                "omitted_question_count": coverage.get("omitted_question_count"),
+                "question_limit_omitted_source_refs": manifest.get(
+                    "source_selection", {}
+                ).get("question_limit_omitted_source_refs", []),
+            },
+            source_refs=selected_refs,
+            dimension="semantic_coverage",
+            evidence_refs=(mode_evidence, response_evidence),
+            counterexample={
+                "considered": "Unasked pair/dimension questions may contain a material relationship.",
+                "excluded": False,
+                "basis": "The omission is explicit and is never treated as a pass.",
+            },
+            completeness="partial",
+        )
+
+    source_records = {item.source_id: item for item in state.builder.sources}
+    reviews_by_answer = {
+        item["answer_id"]: item for item in critic["reviews"]
+    }
+    grouped: dict[tuple[tuple[str, ...], str], list[dict[str, Any]]] = {}
+    for answer in analyst["answers"]:
+        joined = dict(answer)
+        joined["critic_review"] = reviews_by_answer[answer["answer_id"]]
+        key = (tuple(sorted(answer["source_refs"])), answer["dimension"])
+        grouped.setdefault(key, []).append(joined)
+
+    for (source_refs, dimension), relations in sorted(grouped.items()):
+        claim_refs = tuple(
+            sorted(
+                {
+                    claim_ref
+                    for relation in relations
+                    for claim_ref in relation["claim_refs"]
+                }
+            )
+        )
+        analyst_labels = tuple(sorted({relation["label"] for relation in relations}))
+        critic_labels = tuple(
+            sorted({relation["critic_review"]["label"] for relation in relations})
+        )
+        locations = [
+            source_records[source_ref].location
+            for source_ref in source_refs
+            if source_ref in source_records
+        ]
+        applicable = all(
+            source_records[source_ref].effective_scope.get("state") == "applicable"
+            for source_ref in source_refs
+            if source_ref in source_records
+        ) and len(locations) == len(source_refs)
+        region = {
+            "paths": locations,
+            "intersection": "proven" if applicable else "unknown",
+            "runtime_observed": False,
+            "witness": "locally resolved static applicability and cited Skill claims only",
+        }
+        relation_evidence: list[str] = []
+        for relation in relations:
+            parents = tuple(
+                sorted(
+                    {
+                        *(
+                            state.source_evidence[source_ref]
+                            for source_ref in relation["source_refs"]
+                            if source_ref in state.source_evidence
+                        ),
+                        *(
+                            state.claim_evidence[claim_ref]
+                            for claim_ref in relation["claim_refs"]
+                            if claim_ref in state.claim_evidence
+                        ),
+                    }
+                )
+            )
+            rationale = minimize_excerpt(relation["rationale"], limit=480)[0]
+            relation_evidence.append(
+                state.builder.add_evidence(
+                    kind=EvidenceKind.INFERRED.value,
+                    producer="codex-desktop-semantic-analyst@0.2",
+                    summary=rationale,
+                    source_refs=tuple(sorted(relation["source_refs"])),
+                    parent_evidence_refs=parents,
+                    rule_or_provider={
+                        "source_kind": "model",
+                        "provider": manifest["provider"],
+                        "model": manifest["model"],
+                        "panel_role": "analyst",
+                        "answer_id": relation["answer_id"],
+                        "question_id": relation["question_id"],
+                        "label_hypothesis": relation["label"],
+                        "citations": relation["citations"],
+                        "consent_manifest_digest": expected_digest,
+                    },
+                    disclosure="excerpt",
+                    excerpt=rationale,
+                )
+            )
+            review = relation["critic_review"]
+            critic_rationale = minimize_excerpt(review["rationale"], limit=480)[0]
+            relation_evidence.append(
+                state.builder.add_evidence(
+                    kind=EvidenceKind.INFERRED.value,
+                    producer="codex-desktop-semantic-critic@0.2",
+                    summary=critic_rationale,
+                    source_refs=tuple(sorted(review["source_refs"])),
+                    parent_evidence_refs=parents,
+                    rule_or_provider={
+                        "source_kind": "model",
+                        "provider": manifest["provider"],
+                        "model": manifest["model"],
+                        "panel_role": "critic",
+                        "review_id": review["review_id"],
+                        "answer_id": review["answer_id"],
+                        "question_id": review["question_id"],
+                        "disposition": review["disposition"],
+                        "label_hypothesis": review["label"],
+                        "citations": review["citations"],
+                        "consent_manifest_digest": expected_digest,
+                    },
+                    disclosure="excerpt",
+                    excerpt=critic_rationale,
+                )
+            )
+
+        if len(relations) != 1:
+            raise ValueError("semantic panel emitted duplicate pair/dimension questions")
+        panel_decision = adjudicate_panel_answer(
+            relations[0], relations[0]["critic_review"]
+        )
+        panel_agrees = bool(panel_decision["agreement"])
+        critic_challenged = bool(panel_decision["challenged"])
+        has_open_counterexample = bool(panel_decision["counterexample_open"])
+        has_missing_evidence = bool(panel_decision["missing_evidence"])
+        decisive = bool(panel_decision["decisive"])
+        labels = tuple(panel_decision["labels"])
+        qualifiers: tuple[ValidationQualifier, ...] = ()
+        check_state = str(panel_decision["state"])
+        severity = panel_decision["severity"]
+        potential = panel_decision["potential_severity"]
+        confidence = panel_decision["confidence"]
+        if panel_decision["runtime_validation_needed"]:
+            qualifiers = (
+                ValidationQualifier(
+                    "runtime_validation_needed",
+                    "The overlapping Skill scopes are jointly available for one task.",
+                    "Observe both sources as applicable to the same task.",
+                    "Establish mutually exclusive routing or applicability.",
+                ),
+            )
+
+        counterexample_text = "; ".join(
+            explanation
+            for relation in relations
+            for explanation in (
+                relation["counterexample"]["explanation"],
+                relation["critic_review"]["counterexample"]["explanation"],
+            )
+            if explanation
+        )
+        missing = sorted(
+            {
+                item
+                for relation in relations
+                for item in (
+                    list(relation["missing_evidence"])
+                    + list(relation["critic_review"]["missing_evidence"])
+                )
+            }
+        )
+        action_refs: tuple[str, ...] = ()
+        accepted_recommendations = [
+            relation["recommendation"]
+            for relation in relations
+            if decisive
+            and relation.get("recommendation") is not None
+            and relation["critic_review"]["recommendation_disposition"] == "accepted"
+            and recommendation_is_compatible(
+                relation["label"], relation["recommendation"]["kind"]
+            )
+            and relation["recommendation"]["kind"] != "no_action"
+        ]
+        if accepted_recommendations:
+            recommendation = accepted_recommendations[0]
+            action_refs = (
+                state.builder.add_next_action(
+                    kind="manual_repair",
+                    summary=recommendation["summary"],
+                    bounds={
+                        "source_refs": list(source_refs),
+                        "dimension": dimension,
+                        "proposal_kind": recommendation["kind"],
+                        "expected_benefit": recommendation["expected_benefit"],
+                        "risk": recommendation["risk"],
+                        "verification": recommendation["verification"],
+                        "model_proposed": True,
+                        "automatic_apply": False,
+                    },
+                ),
+            )
+        elif check_state in {
+            CheckState.FINDING.value,
+            CheckState.CANDIDATE.value,
+            CheckState.INSUFFICIENT_EVIDENCE.value,
+        }:
+            action_refs = (
+                state.builder.add_next_action(
+                    kind=(
+                        "manual_validation"
+                        if check_state == CheckState.FINDING.value
+                        else "evidence_request"
+                    ),
+                    summary=(
+                        "Review the cited Skill excerpts and their routing boundaries; "
+                        "make no automatic change and capture task-specific applicability "
+                        "evidence before asserting runtime impact."
+                    ),
+                    bounds={
+                        "source_refs": list(source_refs),
+                        "dimension": dimension,
+                        "missing_evidence": missing,
+                        "panel_agreement": panel_agrees,
+                        "automatic_apply": False,
+                    },
+                ),
+            )
+        _add_case(
+            state,
+            check_id="semantic.skill.relationship",
+            family="semantic",
+            question=(
+                "What material semantic relationship exists among the selected "
+                f"Skills on {dimension}?"
+            ),
+            check_state=check_state,
+            reason={
+                "code": "local_semantic_panel_adjudication",
+                "question_ids": sorted(
+                    {relation["question_id"] for relation in relations}
+                ),
+                "analyst_labels": list(analyst_labels),
+                "critic_labels": list(critic_labels),
+                "critic_dispositions": sorted(
+                    {
+                        relation["critic_review"]["disposition"]
+                        for relation in relations
+                    }
+                ),
+                "panel_agreement": panel_agrees,
+                "counterexample_open": has_open_counterexample,
+                "missing_evidence": missing,
+                "manual_recommendation_accepted": bool(accepted_recommendations),
+                "release_qualified": manifest["qualification"]["release_qualified"],
+                "runtime_causality_asserted": False,
+            },
+            source_refs=source_refs,
+            claim_refs=claim_refs,
+            region=region,
+            dimension=dimension,
+            labels=labels,
+            qualifiers=qualifiers,
+            severity=severity,
+            potential_severity=potential,
+            confidence=confidence,
+            evidence_refs=tuple(sorted(set(relation_evidence))),
+            counterexample={
+                "considered": counterexample_text or "No counterexample supplied.",
+                "excluded": not has_open_counterexample,
+                "basis": (
+                    "Analyst and independent critic counterexamples were joined "
+                    "by frozen question identity and locally interpreted; static "
+                    "evidence does not establish runtime causality."
+                ),
+            },
+            next_action_refs=action_refs,
+            completeness="complete" if decisive else "partial",
         )
 
 
@@ -1064,6 +1729,11 @@ def analyze(request: AnalysisRequest, *, clock: Any | None = None, run_id: str |
             include_system=request.include_system,
             project_trust=request.project_trust,
             semantic_mode=request.semantic_mode,
+            semantic_manifest_digest=(
+                request.semantic_manifest.get("manifest_digest")
+                if request.semantic_manifest is not None
+                else None
+            ),
         ),
         profile,
     )
@@ -1102,12 +1772,13 @@ def analyze(request: AnalysisRequest, *, clock: Any | None = None, run_id: str |
     state.candidates = discover(scope, profile)
     _read_and_parse(state)
     _metadata_checks(state)
+    _local_observed_applicability_checks(state)
     _duplicate_checks(state)
     _reference_checks(state)
     effective_config = _configuration_precedence_checks(state)
     _instruction_budget_check(state, effective_config)
     _skill_budget_abstention(state)
-    _semantic_coverage(state)
+    _semantic_coverage(state, request)
     _group_cases(state)
     graph = builder.seal()
     return AnalysisResponse(graph, scope)

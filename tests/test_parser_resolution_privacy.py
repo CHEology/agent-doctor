@@ -4,7 +4,7 @@ from pathlib import Path
 
 from agent_doctor.parser import parse_source
 from agent_doctor.privacy import SafeReader, minimize_excerpt, redact_secrets, safe_revision
-from agent_doctor.resolution import ReferenceDeclaration, resolve_reference
+from agent_doctor.resolution import ReferenceDeclaration, extract_references, resolve_reference
 
 
 def test_parser_preserves_modalities_qualifiers_and_inclusive_columns() -> None:
@@ -17,6 +17,16 @@ def test_parser_preserves_modalities_qualifiers_and_inclusive_columns() -> None:
     assert any("except" in item.qualifiers for item in parsed.claims)
     first = next(item for item in parsed.claims if item.span["start_line"] == 1)
     assert first.span["end_column"] == len("Must run tests.")
+
+
+def test_repeated_qualifiers_are_canonicalized_without_duplicates() -> None:
+    parsed = parse_source(
+        "source-test",
+        "instruction",
+        "If input is present, continue only if validation succeeds.\n",
+    )
+    assert parsed.claims
+    assert all(item.qualifiers == ("if", "only") for item in parsed.claims)
 
 
 def test_parser_preserves_crlf_unicode_byte_and_display_spans() -> None:
@@ -62,6 +72,52 @@ def test_reference_resolves_from_declaration_and_rejects_escape(tmp_path: Path) 
     assert escape.status == "escape"
     assert escape.outside_read_attempted is False
     assert escape.normalized_target and not escape.normalized_target.startswith("/")
+
+
+def test_reference_extraction_accepts_paths_but_not_commands_or_prose() -> None:
+    content = """Read `references/policy.md` before review.
+Run `python \"<path-to-skill>/scripts/check.py\" --strict` when asked.
+The `scripts/` directory contains optional helpers for local use.
+See [the policy](references/review.md).
+```sh
+python scripts/check.py --all
+```
+"""
+    declarations = extract_references("source-a", content)
+    assert [(item.raw, item.line) for item in declarations] == [
+        ("references/policy.md", 1),
+        ("references/review.md", 4),
+    ]
+
+
+def test_reference_extraction_abstains_on_non_path_code_tokens() -> None:
+    content = """Use \x60.xlsx\x60 for output.
+Use \x60$Spreadsheets\x60 for workbook work.
+Use \x60@oai/artifact-tool\x60 for authoring.
+Read the applicable \x60AGENTS.md\x60 before editing.
+The conversation URL must contain \x60/c/\x60.
+Open PRs before following \x60../yeet/SKILL.md\x60.
+Only after setup may the agent read \x60private/generated.jsonl\x60.
+Read \x60docs/project-runbook.md\x60 from the selected workspace.
+Inspect \x60assets/source\x60 in the generated output.
+"""
+    assert extract_references("source-a", content) == ()
+
+
+def test_reference_directory_is_a_valid_in_scope_target(tmp_path: Path) -> None:
+    package = tmp_path / "repo/skills/a"
+    target = package / "references"
+    target.mkdir(parents=True)
+    declaring = package / "SKILL.md"
+    declaring.write_text("Read `references/` before review.\n", encoding="utf-8")
+    result = resolve_reference(
+        ReferenceDeclaration("references/", 1, True, "source-a"),
+        declaring_path=declaring,
+        allowed_root=package,
+        display_root=tmp_path / "repo",
+    )
+    assert result.status == "valid_directory"
+    assert result.target_path == target
 
 
 def test_reference_follows_only_in_scope_symlink(tmp_path: Path) -> None:
@@ -122,6 +178,23 @@ def test_secret_redaction_and_script_exclusion(tmp_path: Path) -> None:
     )
     assert result.status == "withheld"
     assert result.content is None
+
+
+def test_absolute_home_paths_are_redacted_from_claims_and_config_dimensions() -> None:
+    home = str(Path.home().resolve(strict=False))
+    instruction = parse_source(
+        "source-home",
+        "instruction",
+        f"Read {home}/private/policy.md before review.\n",
+    )
+    config = parse_source(
+        "source-config",
+        "config",
+        f'["{home}/private/skill"]\nenabled = true\n',
+    )
+    rendered = repr((instruction.claims, config.claims))
+    assert home not in rendered
+    assert "user://private" in rendered
 
 
 def test_bounded_reader_keeps_valid_unicode_prefix_when_limit_splits_scalar(tmp_path: Path) -> None:
