@@ -253,6 +253,12 @@ replace it.
     disagreement is at most a candidate and can never become a finding or pass.
 12. Seal the same result graph used by the human terminal, Markdown, JSON, and
     CI projections.
+13. Project completed-but-insufficient panel hypotheses into a separate,
+    explicitly unconfirmed review-lead section. Terminal output shows the three
+    most risk-like and two clearest no-material/complementarity examples with
+    exact source lines, role labels/rationales, counterexample state, durable
+    IDs, and exact omitted counts; full Markdown/JSON remains lossless. This
+    presentation step cannot change graph state or promote a hypothesis.
 
 ### 6.2 Provider response contract
 

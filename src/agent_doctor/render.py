@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from collections import Counter
+import re
 from typing import Any
 
 from .canonical import canonical_json
@@ -15,6 +16,8 @@ TERMINAL_TOP_ISSUES = 3
 TERMINAL_LOW_ISSUES = 2
 TERMINAL_EXCERPTS_PER_ISSUE = 3
 TERMINAL_MODEL_REVIEWS_PER_ISSUE = 3
+TERMINAL_RISK_LEADS = 3
+TERMINAL_NON_ISSUE_LEADS = 2
 
 
 JUDGMENT_BASIS_TEXT = {
@@ -113,6 +116,69 @@ def _append_terminal_issue(
             "are retained in the sealed result."
         )
     lines.append(f"     Reference: {issue['case_id']}")
+
+
+def _lead_excerpts(lead: dict[str, Any]) -> list[dict[str, str]]:
+    """Rank exact excerpts for display without changing diagnostic meaning."""
+
+    rationale = " ".join(
+        str(review.get("text", "")) for review in lead.get("model_reviews", [])
+    ).casefold()
+    terms = {
+        token
+        for token in re.findall(r"[\w-]+", rationale)
+        if len(token) >= 4
+    }
+
+    def key(sample: dict[str, str]) -> tuple[int, str, str]:
+        excerpt = sample.get("text", "").casefold()
+        overlap = sum(term in excerpt for term in terms)
+        return (-overlap, sample.get("location", ""), sample.get("text", ""))
+
+    return sorted(lead.get("source_excerpts", []), key=key)
+
+
+def _review_identity(review: dict[str, str]) -> str:
+    details = [review.get("label", "unknown")]
+    if review.get("disposition"):
+        details.append(review["disposition"])
+    return f"{review.get('role', 'unknown')} [{'; '.join(details)}]"
+
+
+def _append_terminal_semantic_lead(
+    lines: list[str], rank: int, lead: dict[str, Any]
+) -> None:
+    lines.extend(
+        [
+            f"  {rank}. [unconfirmed] {lead['question']}",
+            "     Local status: insufficient evidence; this is not a finding or candidate.",
+            "     Where: "
+            + (", ".join(lead["locations"]) or "no source location recorded"),
+        ]
+    )
+    excerpts = _lead_excerpts(lead)
+    for sample in excerpts[:TERMINAL_EXCERPTS_PER_ISSUE]:
+        lines.append(
+            f"     Cited [{sample['location']}]: {_compact_text(sample['text'])}"
+        )
+    if len(excerpts) > TERMINAL_EXCERPTS_PER_ISSUE:
+        lines.append(
+            f"     Cited: … {len(excerpts) - TERMINAL_EXCERPTS_PER_ISSUE} "
+            "additional exact excerpt(s) remain in Markdown/JSON."
+        )
+    for review in lead.get("model_reviews", [])[:TERMINAL_MODEL_REVIEWS_PER_ISSUE]:
+        lines.append(
+            f"     Model {_review_identity(review)}: "
+            f"{_compact_text(review.get('text', ''))} ({review['reference']})"
+        )
+    counterexample = lead.get("counterexample")
+    if isinstance(counterexample, dict):
+        status = "excluded" if counterexample.get("excluded") else "still open"
+        lines.append(
+            f"     Local counterexample ({status}): "
+            + _compact_text(counterexample.get("considered", "none recorded"))
+        )
+    lines.append(f"     Reference: {lead['case_id']}")
 
 
 def render_json(graph: dict[str, Any], *, pretty: bool = True) -> str:
@@ -258,6 +324,41 @@ def render_terminal(graph: dict[str, Any]) -> str:
             "sealed result and complete Markdown/JSON projections."
         )
 
+    semantic_leads = summary["semantic_review_leads"]
+    risk_leads = semantic_leads["risk"]
+    non_issue_leads = semantic_leads["non_issue"]
+    if risk_leads or non_issue_leads:
+        lines.extend(
+            [
+                "",
+                "Unconfirmed semantic review leads",
+                "  These are bounded model hypotheses retained for human review; local "
+                "adjudication did not promote them to findings or candidates.",
+            ]
+        )
+    if risk_leads:
+        lines.append("  Most risk-like hypotheses:")
+        for rank, lead in enumerate(risk_leads[:TERMINAL_RISK_LEADS], start=1):
+            _append_terminal_semantic_lead(lines, rank, lead)
+        omitted = len(risk_leads) - TERMINAL_RISK_LEADS
+        if omitted > 0:
+            lines.append(
+                f"  … {omitted} additional risk-like semantic lead(s) remain in "
+                "Markdown/JSON."
+            )
+    if non_issue_leads:
+        lines.append("  Clearest no-material-relation or complementarity examples:")
+        for rank, lead in enumerate(
+            non_issue_leads[:TERMINAL_NON_ISSUE_LEADS], start=1
+        ):
+            _append_terminal_semantic_lead(lines, rank, lead)
+        omitted = len(non_issue_leads) - TERMINAL_NON_ISSUE_LEADS
+        if omitted > 0:
+            lines.append(
+                f"  … {omitted} additional low-risk semantic example(s) remain in "
+                "Markdown/JSON."
+            )
+
     lines.extend(["", "Skill health (bounded to completed checks)"])
     if not summary["health_cards"]:
         lines.append("  No discovered Skill body was available for a health card.")
@@ -314,7 +415,14 @@ def render_terminal(graph: dict[str, Any]) -> str:
     lines.extend(["", "Still unknown or not completed"])
     if not summary["unknowns"] and not summary["coverage_gaps"]:
         lines.append("  No additional gap was recorded.")
+    semantic_lead_ids = {
+        item["case_id"]
+        for group in summary["semantic_review_leads"].values()
+        for item in group
+    }
     for item in summary["unknowns"]:
+        if item["case_id"] in semantic_lead_ids:
+            continue
         lines.append(
             f"  [{item['state']}] {item['question']} (reference {item['case_id']})"
         )
@@ -402,6 +510,53 @@ def render_markdown(graph: dict[str, Any]) -> str:
             )
         for recommendation in issue["recommendations"]:
             lines.append(f"- Manual next step: {recommendation}")
+        lines.append("")
+
+    semantic_leads = summary["semantic_review_leads"]
+    all_semantic_leads = semantic_leads["risk"] + semantic_leads["non_issue"]
+    lines.extend(["## Unconfirmed semantic review leads", ""])
+    if not all_semantic_leads:
+        lines.append("No unconfirmed model-panel relationship lead was retained.")
+    else:
+        lines.append(
+            "These are inferred model hypotheses retained for review. Every item below "
+            "remains `insufficient_evidence`; none is a finding or candidate."
+        )
+        lines.append("")
+    for lead in all_semantic_leads:
+        locations = ", ".join(f"`{item}`" for item in lead["locations"]) or "none recorded"
+        lines.extend(
+            [
+                f"### {lead['question']}",
+                "",
+                f"- Lead class: `{lead['lead_kind']}`; local state: `insufficient_evidence`.",
+                f"- Locations: {locations}",
+                f"- Durable case: `{lead['case_id']}`",
+            ]
+        )
+        excerpts = _lead_excerpts(lead)
+        if excerpts:
+            lines.append(f"- Exact cited source excerpts ({len(excerpts)}):")
+            for sample in excerpts:
+                lines.append(
+                    f"  - `{sample['location']}` — {_compact_text(sample['text'], limit=600)} "
+                    f"(`{sample['reference']}`)"
+                )
+        lines.append(
+            f"- Model-panel rationales ({len(lead['model_reviews'])}; inferred evidence):"
+        )
+        for review in lead["model_reviews"]:
+            lines.append(
+                f"  - **{_review_identity(review)}** — "
+                f"{_compact_text(review['text'], limit=600)} (`{review['reference']}`)"
+            )
+        counterexample = lead.get("counterexample")
+        if isinstance(counterexample, dict):
+            status = "excluded" if counterexample.get("excluded") else "still open"
+            lines.append(
+                f"- Local counterexample ({status}): "
+                + _compact_text(counterexample.get("considered", "none recorded"), limit=600)
+            )
         lines.append("")
 
     lines.extend(["## Skill health", ""])

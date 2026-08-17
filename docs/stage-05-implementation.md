@@ -168,6 +168,12 @@ sentences, panel rationale and counterexample state, and states exact omitted
 counts. Markdown and JSON retain the complete cited detail. Planned but
 unanswered semantic questions are reported only as pending coverage, never as
 diagnosed risks.
+Completed panel hypotheses that remain `insufficient_evidence` are not hidden
+behind generic question text and are not promoted. A separate unconfirmed-lead
+section shows the three most risk-like hypotheses and two clearest
+no-material/complementarity examples with exact cited lines, role-specific
+labels/rationales, open counterexamples, durable IDs, and exact remaining
+counts; Markdown/JSON retain the full lead set.
 The adapter/model/prompt has not completed Stage 04 qualification, so this
 developmental path supports no accuracy, calibration, usefulness, or release
 claim.

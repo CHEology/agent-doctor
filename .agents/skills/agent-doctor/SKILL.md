@@ -65,6 +65,13 @@ never upgrade static filesystem evidence into runtime selection or causality.
   highest-severity items and up to two representative lowest-severity items,
   then state exact omitted item/excerpt counts; use Markdown/JSON for complete
   detail.
+- When a completed three-role panel retains relationship hypotheses as
+  `insufficient_evidence`, present them in a separate **unconfirmed semantic
+  review leads** section, never under findings/candidates. Show the three most
+  risk-like hypotheses and up to two clearest no-material/complementarity
+  examples with exact cited locations, A/B/judge labels and rationales, open
+  counterexamples, durable case IDs, and exact omitted counts. Markdown/JSON
+  retain every lead and cited excerpt.
 - Treat planned or unanswered semantic questions as pending coverage, never as
   risks. Keep deterministic findings, locally adjudicated inferred findings,
   and unconfirmed candidates visibly distinct.

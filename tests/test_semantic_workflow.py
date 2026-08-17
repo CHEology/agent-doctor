@@ -903,6 +903,12 @@ def test_judge_challenge_abstains_instead_of_forcing_a_finding(tmp_path: Path) -
         item for item in graph["checks"] if item["execution_id"] == semantic_case["check_ref"]
     )
     assert check["completeness"] == "partial"
+    terminal = render_terminal(graph)
+    assert "Unconfirmed semantic review leads" in terminal
+    assert "Most risk-like hypotheses:" in terminal
+    assert "Local status: insufficient evidence; this is not a finding or candidate." in terminal
+    assert "Model judge [unknown; challenged]:" in terminal
+    assert "Cited [workspace://.agents/skills/" in terminal
 
 
 def test_incompatible_model_recommendation_is_not_promoted(tmp_path: Path) -> None:

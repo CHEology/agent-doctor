@@ -219,6 +219,17 @@ def _case_model_reviews(
                 "role": role,
                 "text": text,
                 "reference": str(evidence_ref),
+                "label": (
+                    str(provider["label_hypothesis"])
+                    if isinstance(provider, Mapping)
+                    and isinstance(provider.get("label_hypothesis"), str)
+                    else "unknown"
+                ),
+                "disposition": (
+                    str(provider.get("disposition", ""))
+                    if isinstance(provider, Mapping)
+                    else ""
+                ),
             }
         )
     role_rank = {"judge": 0, "analyst_a": 1, "analyst_b": 2}
@@ -524,8 +535,9 @@ def build_human_summary(graph: Mapping[str, Any]) -> dict[str, Any]:
     ]
     issues: list[dict[str, Any]] = []
     unknowns: list[dict[str, Any]] = []
+    semantic_review_leads: list[dict[str, Any]] = []
     for case in cases:
-        item = {
+        item: dict[str, Any] = {
             "case_id": case.get("case_id"),
             "check_ref": case.get("check_ref"),
             "state": case.get("state"),
@@ -548,8 +560,65 @@ def build_human_summary(graph: Mapping[str, Any]) -> dict[str, Any]:
             issues.append(item)
         elif case.get("state") in UNKNOWN_STATES or case.get("state") == "error":
             unknowns.append(item)
+            if (
+                case.get("state") == "insufficient_evidence"
+                and str(case.get("question", "")).startswith(
+                    "What material semantic relationship"
+                )
+                and item["model_reviews"]
+            ):
+                risk_labels = {
+                    "semantic_conflict",
+                    "scope_overlap",
+                    "behavioral_redundancy",
+                }
+                risk_votes = sum(
+                    review["label"] in risk_labels
+                    for review in item["model_reviews"]
+                )
+                judge: dict[str, str] = next(
+                    (
+                        review
+                        for review in item["model_reviews"]
+                        if review["role"] == "judge"
+                    ),
+                    {},
+                )
+                item["risk_votes"] = risk_votes
+                item["judge_hypothesis"] = judge.get("label", "unknown")
+                item["judge_disposition"] = judge.get("disposition", "")
+                item["lead_kind"] = "risk" if risk_votes else "non_issue"
+                semantic_review_leads.append(item)
 
     issues.sort(key=_issue_sort_key)
+    risk_semantic_leads = sorted(
+        (
+            item
+            for item in semantic_review_leads
+            if item["lead_kind"] == "risk"
+        ),
+        key=lambda item: (
+            0
+            if item.get("judge_hypothesis")
+            in {"semantic_conflict", "scope_overlap", "behavioral_redundancy"}
+            else 1,
+            -int(item.get("risk_votes", 0)),
+            0 if item.get("judge_disposition") == "corroborated_consensus" else 1,
+            str(item.get("case_id", "")),
+        ),
+    )
+    non_issue_semantic_leads = sorted(
+        (
+            item
+            for item in semantic_review_leads
+            if item["lead_kind"] == "non_issue"
+        ),
+        key=lambda item: (
+            0 if item.get("judge_hypothesis") == "no_material_relation" else 1,
+            0 if item.get("judge_disposition") == "corroborated_consensus" else 1,
+            str(item.get("case_id", "")),
+        ),
+    )
 
     cards = build_health_cards(graph)
     card_counts = Counter(str(item["status"]) for item in cards)
@@ -598,6 +667,10 @@ def build_human_summary(graph: Mapping[str, Any]) -> dict[str, Any]:
         "verdict": verdict,
         "issues": issues,
         "unknowns": unknowns,
+        "semantic_review_leads": {
+            "risk": risk_semantic_leads,
+            "non_issue": non_issue_semantic_leads,
+        },
         "health_cards": cards,
         "health_card_counts": dict(sorted(card_counts.items())),
         "coverage_gaps": list(graph.get("coverage", {}).get("gaps", [])),
