@@ -1822,7 +1822,8 @@ def _semantic_coverage(state: _PipelineState, request: AnalysisRequest) -> None:
             }
         )
         action_refs: tuple[str, ...] = ()
-        recommendation_role = relation["judge"]["selected_recommendation_from"]
+        recommendation_decision = relation["judge"]["recommendation_decision"]
+        recommendation_role = recommendation_decision["selected_from"]
         recommendation_answer = (
             relation[recommendation_role]
             if recommendation_role in {"analyst_a", "analyst_b"}
@@ -1833,7 +1834,7 @@ def _semantic_coverage(state: _PipelineState, request: AnalysisRequest) -> None:
             decisive
             and recommendation_answer is not None
             and recommendation_answer.get("recommendation") is not None
-            and relation["judge"]["recommendation_disposition"] == "accepted"
+            and recommendation_decision["disposition"] == "accepted"
             and relation["judge"]["selected_label"] == recommendation_answer["label"]
             and recommendation_is_compatible(
                 recommendation_answer["label"],

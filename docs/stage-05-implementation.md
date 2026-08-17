@@ -136,6 +136,10 @@ prompt includes a compact per-question identity table for exact source, handle,
 claim, and dimension copying. Additional eligible questions are sealed as an
 explicit coverage gap, never as a pass; users can narrow to exact Skill pairs
 for complete pair-specific coverage.
+The judge's recommendation selection and disposition are one schema-level
+discriminated decision: selecting `none` can only produce `not_applicable`.
+Local validation still checks that any named analyst actually supplied a
+compatible recommendation.
 
 Maintenance freshness is implemented only where evidence can decide it. An
 explicit consumer/target schema match passes; an explicit incompatibility is a

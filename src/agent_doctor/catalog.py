@@ -652,7 +652,7 @@ def _semantic_contract_fixture() -> tuple[dict[str, Any], dict[str, Any]]:
         ],
         "semantic_panel": {"questions": [question]},
         "retention_and_cache": {"provider_retention": "unknown"},
-        "prompt_contract_version": "agent-doctor-semantic-panel-prompt/0.5",
+        "prompt_contract_version": "agent-doctor-semantic-panel-prompt/0.6",
         "taxonomy_version": "0.1",
     }
     manifest = dict(unsigned)
@@ -708,11 +708,13 @@ def _semantic_contract_fixture() -> tuple[dict[str, Any], dict[str, Any]]:
         "citations": handle_refs,
         "counterexample": {"status": "excluded", "explanation": "No exception is stated."},
         "missing_evidence": [],
-        "selected_recommendation_from": "none",
-        "recommendation_disposition": "not_applicable",
+        "recommendation_decision": {
+            "selected_from": "none",
+            "disposition": "not_applicable",
+        },
     }
     judge = {
-        "schema_version": "agent-doctor-semantic-judge-response/0.3",
+        "schema_version": "agent-doctor-semantic-judge-response/0.4",
         "manifest_digest": manifest["manifest_digest"],
         "provider": "codex-desktop",
         "model": manifest["model"],
@@ -721,7 +723,7 @@ def _semantic_contract_fixture() -> tuple[dict[str, Any], dict[str, Any]]:
         "limitations": ["No runtime evidence."],
     }
     response = {
-        "schema_version": "agent-doctor-semantic-panel-response/0.3",
+        "schema_version": "agent-doctor-semantic-panel-response/0.4",
         "manifest_digest": manifest["manifest_digest"],
         "provider": "codex-desktop",
         "model": manifest["model"],

@@ -236,6 +236,8 @@ replace it.
    exact question/source/dimension joins, content-handle citations, secret
    echoes, source-order disclosure, and request/response identity. Invalid or
    uncited panel output is unusable.
+   Cross-field recommendation selection is encoded as a nested schema union so
+   `selected_from=none` mechanically implies `disposition=not_applicable`.
 10. Record all three model statements only as immutable `inferred` evidence.
 11. Let the local adjudicator require corroborated analyst consensus, judge
     confirmation, closed counterexamples, no missing evidence, and a recommendation/label

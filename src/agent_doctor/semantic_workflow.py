@@ -21,15 +21,15 @@ from .types import SUBSTANTIVE_LABELS
 from .version import SEMANTIC_CONTRACT_VERSION, TAXONOMY_VERSION
 
 
-MANIFEST_SCHEMA_VERSION = "agent-doctor-semantic-disclosure/0.7"
-PACKAGE_SCHEMA_VERSION = "agent-doctor-semantic-package/0.3"
-RESPONSE_SCHEMA_VERSION = "agent-doctor-semantic-panel-response/0.3"
+MANIFEST_SCHEMA_VERSION = "agent-doctor-semantic-disclosure/0.8"
+PACKAGE_SCHEMA_VERSION = "agent-doctor-semantic-package/0.4"
+RESPONSE_SCHEMA_VERSION = "agent-doctor-semantic-panel-response/0.4"
 ANALYST_RESPONSE_SCHEMA_VERSION = "agent-doctor-semantic-analyst-response/0.3"
-JUDGE_RESPONSE_SCHEMA_VERSION = "agent-doctor-semantic-judge-response/0.3"
-INVOCATION_SCHEMA_VERSION = "agent-doctor-semantic-invocation/0.3"
+JUDGE_RESPONSE_SCHEMA_VERSION = "agent-doctor-semantic-judge-response/0.4"
+INVOCATION_SCHEMA_VERSION = "agent-doctor-semantic-invocation/0.4"
 PROVIDER_ID = "codex-desktop"
-ADAPTER_VERSION = "agent-doctor-codex-exec/0.3"
-PROMPT_CONTRACT_VERSION = "agent-doctor-semantic-panel-prompt/0.5"
+ADAPTER_VERSION = "agent-doctor-codex-exec/0.4"
+PROMPT_CONTRACT_VERSION = "agent-doctor-semantic-panel-prompt/0.6"
 SEMANTIC_RELATION_LABELS = frozenset(
     {
         "semantic_conflict",
@@ -973,8 +973,7 @@ def validate_judge_response(
         "citations",
         "counterexample",
         "missing_evidence",
-        "selected_recommendation_from",
-        "recommendation_disposition",
+        "recommendation_decision",
     }
     judged: set[str] = set()
     judgment_ids: set[str] = set()
@@ -1053,9 +1052,16 @@ def validate_judge_response(
         errors.extend(
             _missing_evidence_errors(judgment.get("missing_evidence"), path=f"{path}.missing_evidence")
         )
-        recommendation_source = judgment.get("selected_recommendation_from")
+        recommendation_decision = judgment.get("recommendation_decision")
+        if (
+            not isinstance(recommendation_decision, dict)
+            or set(recommendation_decision) != {"selected_from", "disposition"}
+        ):
+            errors.append(f"{path}.recommendation_decision is malformed")
+            recommendation_decision = {}
+        recommendation_source = recommendation_decision.get("selected_from")
         if recommendation_source not in {"analyst_a", "analyst_b", "none"}:
-            errors.append(f"{path}.selected_recommendation_from is invalid")
+            errors.append(f"{path}.recommendation_decision.selected_from is invalid")
         selected_answer = (
             answer_a
             if recommendation_source == "analyst_a"
@@ -1063,22 +1069,26 @@ def validate_judge_response(
             if recommendation_source == "analyst_b"
             else None
         )
-        recommendation_disposition = judgment.get("recommendation_disposition")
+        recommendation_disposition = recommendation_decision.get("disposition")
         if recommendation_disposition not in {
             "accepted",
             "challenged",
             "insufficient",
             "not_applicable",
         }:
-            errors.append(f"{path}.recommendation_disposition is invalid")
+            errors.append(f"{path}.recommendation_decision.disposition is invalid")
         if (
             selected_answer is None
             or selected_answer.get("recommendation") is None
             or selected_label != selected_answer.get("label")
         ) and recommendation_disposition != "not_applicable":
-            errors.append(f"{path}.recommendation_disposition must be not_applicable")
+            errors.append(
+                f"{path}.recommendation_decision.disposition must be not_applicable"
+            )
         if recommendation_source == "none" and recommendation_disposition != "not_applicable":
-            errors.append(f"{path}.recommendation source none must be not_applicable")
+            errors.append(
+                f"{path}.recommendation source none must be not_applicable"
+            )
     if judged != set(questions):
         errors.append("judge response must adjudicate every frozen question exactly once")
     forbidden = _find_forbidden_field(response)
@@ -1266,8 +1276,8 @@ def build_judge_prompt(
                 ),
                 "recommendation_none_rule": (
                     "when no listed source is selected, set "
-                    "selected_recommendation_from=none and "
-                    "recommendation_disposition=not_applicable"
+                    "recommendation_decision.selected_from=none and "
+                    "recommendation_decision.disposition=not_applicable"
                 ),
             }
         )
@@ -1289,7 +1299,8 @@ def build_judge_prompt(
         "contract: copy answer IDs, sources, citations, and dimension exactly; "
         "claim_refs must be a non-empty subset of claim_refs_allowed_only. Never "
         "select a recommendation source absent from the row's non-null list. If "
-        "you select no recommendation, use none plus not_applicable exactly. "
+        "you select no recommendation, use recommendation_decision with "
+        "selected_from=none plus disposition=not_applicable exactly. "
         "These mechanical join rules take precedence over stylistic preferences. "
         "Use "
         "corroborated_consensus only when both labels match and survive a concrete "

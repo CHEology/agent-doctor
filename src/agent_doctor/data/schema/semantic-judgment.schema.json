@@ -6,7 +6,7 @@
   "additionalProperties": false,
   "required": ["schema_version", "manifest_digest", "provider", "model", "summary", "judgments", "limitations"],
   "properties": {
-    "schema_version": {"type": "string", "const": "agent-doctor-semantic-judge-response/0.3"},
+    "schema_version": {"type": "string", "const": "agent-doctor-semantic-judge-response/0.4"},
     "manifest_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
     "provider": {"type": "string", "const": "codex-desktop"},
     "model": {"type": "string", "minLength": 1, "maxLength": 120},
@@ -22,7 +22,7 @@
           "judgment_id", "question_id", "analyst_a_answer_id", "analyst_b_answer_id",
           "source_refs", "claim_refs", "selected_label", "dimension", "disposition",
           "rationale", "citations", "counterexample", "missing_evidence",
-          "selected_recommendation_from", "recommendation_disposition"
+          "recommendation_decision"
         ],
         "properties": {
           "judgment_id": {"type": "string", "minLength": 1, "maxLength": 160},
@@ -49,8 +49,34 @@
             }
           },
           "missing_evidence": {"type": "array", "maxItems": 12, "items": {"type": "string", "minLength": 1, "maxLength": 500}},
-          "selected_recommendation_from": {"type": "string", "enum": ["analyst_a", "analyst_b", "none"]},
-          "recommendation_disposition": {"type": "string", "enum": ["accepted", "challenged", "insufficient", "not_applicable"]}
+          "recommendation_decision": {
+            "anyOf": [
+              {
+                "type": "object", "additionalProperties": false,
+                "required": ["selected_from", "disposition"],
+                "properties": {
+                  "selected_from": {"type": "string", "const": "none"},
+                  "disposition": {"type": "string", "const": "not_applicable"}
+                }
+              },
+              {
+                "type": "object", "additionalProperties": false,
+                "required": ["selected_from", "disposition"],
+                "properties": {
+                  "selected_from": {"type": "string", "const": "analyst_a"},
+                  "disposition": {"type": "string", "enum": ["accepted", "challenged", "insufficient", "not_applicable"]}
+                }
+              },
+              {
+                "type": "object", "additionalProperties": false,
+                "required": ["selected_from", "disposition"],
+                "properties": {
+                  "selected_from": {"type": "string", "const": "analyst_b"},
+                  "disposition": {"type": "string", "enum": ["accepted", "challenged", "insufficient", "not_applicable"]}
+                }
+              }
+            ]
+          }
         }
       }
     }

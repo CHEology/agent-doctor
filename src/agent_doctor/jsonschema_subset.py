@@ -75,6 +75,23 @@ def validate(instance: Any, schema: dict[str, Any]) -> list[SchemaError]:
             visit(value, target, path)
             return
 
+        alternatives = rule.get("anyOf")
+        if isinstance(alternatives, list):
+            matched = False
+            for alternative in alternatives:
+                if not isinstance(alternative, dict):
+                    continue
+                start = len(errors)
+                visit(value, alternative, path)
+                branch_errors = errors[start:]
+                del errors[start:]
+                if not branch_errors:
+                    matched = True
+                    break
+            if not matched:
+                fail(path, "must match at least one anyOf branch")
+                return
+
         expected = rule.get("type")
         if expected is not None:
             accepted = [expected] if isinstance(expected, str) else list(expected)

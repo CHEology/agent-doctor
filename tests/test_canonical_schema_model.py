@@ -28,6 +28,50 @@ def test_schema_subset_rejects_extra_properties_and_duplicate_items() -> None:
     assert {item.path for item in errors} == {"$.values", "$.extra"}
 
 
+def test_schema_subset_enforces_nested_any_of_correlations() -> None:
+    schema = {
+        "type": "object",
+        "required": ["decision"],
+        "properties": {
+            "decision": {
+                "anyOf": [
+                    {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "required": ["source", "status"],
+                        "properties": {
+                            "source": {"type": "string", "const": "none"},
+                            "status": {
+                                "type": "string",
+                                "const": "not_applicable",
+                            },
+                        },
+                    },
+                    {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "required": ["source", "status"],
+                        "properties": {
+                            "source": {"type": "string", "const": "analyst"},
+                            "status": {
+                                "type": "string",
+                                "enum": ["accepted", "challenged"],
+                            },
+                        },
+                    },
+                ]
+            }
+        },
+    }
+    assert validate(
+        {"decision": {"source": "none", "status": "not_applicable"}},
+        schema,
+    ) == []
+    assert validate(
+        {"decision": {"source": "none", "status": "accepted"}}, schema
+    )
+
+
 def test_published_result_schema_has_closed_product_axes() -> None:
     schema = load_result_schema()
     states = schema["$defs"]["state"]["enum"]

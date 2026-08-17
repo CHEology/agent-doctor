@@ -11,6 +11,7 @@ import pytest
 from agent_doctor.analysis import AnalysisRequest, analyze
 from agent_doctor.canonical import digest
 from agent_doctor.human import build_human_summary
+from agent_doctor.jsonschema_subset import validate as validate_json_schema
 from agent_doctor.render import render_terminal
 from agent_doctor.semantic_panel import (
     adjudicate_panel_answer,
@@ -178,16 +179,20 @@ def _panel_response(
                     "explanation": "Task boundaries remain unclear." if challenged else "No disjoint trigger is stated.",
                 },
                 "missing_evidence": [],
-                "selected_recommendation_from": (
-                    "none" if challenged or recommendation is None else "analyst_a"
-                ),
-                "recommendation_disposition": (
-                    "not_applicable"
-                    if challenged
-                    else "accepted"
-                    if recommendation is not None
-                    else "not_applicable"
-                ),
+                "recommendation_decision": {
+                    "selected_from": (
+                        "none"
+                        if challenged or recommendation is None
+                        else "analyst_a"
+                    ),
+                    "disposition": (
+                        "not_applicable"
+                        if challenged
+                        else "accepted"
+                        if recommendation is not None
+                        else "not_applicable"
+                    ),
+                },
             }
         )
     analyst = {
@@ -211,7 +216,7 @@ def _panel_response(
         "limitations": ["No runtime behavior was observed."],
     }
     judge = {
-        "schema_version": "agent-doctor-semantic-judge-response/0.3",
+        "schema_version": "agent-doctor-semantic-judge-response/0.4",
         "manifest_digest": manifest["manifest_digest"],
         "provider": "codex-desktop",
         "model": manifest["model"],
@@ -220,7 +225,7 @@ def _panel_response(
         "limitations": ["No runtime behavior was observed."],
     }
     combined = {
-        "schema_version": "agent-doctor-semantic-panel-response/0.3",
+        "schema_version": "agent-doctor-semantic-panel-response/0.4",
         "manifest_digest": manifest["manifest_digest"],
         "provider": "codex-desktop",
         "model": manifest["model"],
@@ -276,13 +281,31 @@ def test_semantic_manifest_is_minimized_bounded_and_excludes_scripts(tmp_path: P
     assert manifest["qualification"]["release_qualified"] is False
 
 
+def test_judge_schema_mechanically_binds_none_to_not_applicable(
+    tmp_path: Path,
+) -> None:
+    _, _, package = _package(tmp_path)
+    _, _, judge, _ = _panel_response(package["manifest"])
+    schema = json.loads(
+        Path("src/agent_doctor/data/schema/semantic-judgment.schema.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert validate_json_schema(judge, schema) == []
+    judge["judgments"][0]["recommendation_decision"] = {
+        "selected_from": "none",
+        "disposition": "accepted",
+    }
+    assert validate_json_schema(judge, schema)
+
+
 def test_stale_prompt_contract_is_rejected_even_with_a_recomputed_digest(
     tmp_path: Path,
 ) -> None:
     _, _, package = _package(tmp_path)
     manifest = json.loads(json.dumps(package["manifest"]))
     manifest["prompt_contract_version"] = (
-        "agent-doctor-semantic-panel-prompt/0.4"
+        "agent-doctor-semantic-panel-prompt/0.5"
     )
     manifest.pop("manifest_digest")
     manifest["manifest_digest"] = digest(manifest)
@@ -707,7 +730,7 @@ def test_manifest_minimization_prioritizes_late_routing_boundaries(tmp_path: Pat
     )
     disclosed = "\n".join(item["excerpt"] for item in alpha_handle["claims"])
     assert "Route direct subagent work without panels" in disclosed
-    assert package["manifest"]["schema_version"].endswith("/0.7")
+    assert package["manifest"]["schema_version"].endswith("/0.8")
 
 
 def test_provider_cannot_set_product_severity(tmp_path: Path) -> None:
