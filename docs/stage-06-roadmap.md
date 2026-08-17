@@ -5,6 +5,12 @@
 Proposed. This document does not override the approved Stage 01–04 contracts
 and does not claim release readiness.
 
+The reviewed model-routing foundation and its execution plan are now specified
+in [Semantic diagnosis and OpenAI model routing design](stage-06-semantic-and-model-routing-design.md).
+The routing foundation and local developmental Codex Desktop provider path are
+implemented. Provider qualification, longitudinal baselines, and release
+measurement remain incomplete.
+
 ## Objective
 
 Complete the hybrid product: keep deterministic evidence collection and final
@@ -16,6 +22,12 @@ user's Skill set.
 
 ### 06.1 Semantic disclosure and provider boundary
 
+Implemented locally for the developmental Codex Desktop path; qualification
+and protected live-canary evidence remain open.
+
+- Resolve model choice through a reviewed, fresh capability profile; keep
+  official recommendation, account availability, user policy, and product
+  qualification independent.
 - Materialize an exact disclosure manifest naming provider, model, purpose,
   minimized content handles, exclusions, retention/cache facts, and contract
   versions.
@@ -24,15 +36,25 @@ user's Skill set.
 - Exclude secrets and script/executable bodies, validate adapter lifecycle and
   response schema, require citations to disclosed handles, and retain every
   accepted model statement as `inferred` evidence.
+- Use a deterministic bounded question plan, an isolated analyst, and a fresh-
+  context reversed-order critic. Panel disagreement must abstain; it is never
+  hidden through majority voting.
 
 ### 06.2 Local adjudication into the sealed graph
 
-- Convert validated model responses into candidates, never direct findings.
+- Treat provider relations as hypotheses; only local taxonomy and
+  counterexample rules may convert validated evidence into candidates,
+  findings, passes, or abstentions.
 - Apply taxonomy, counterexample, applicability, severity, confidence,
   deduplication, and grouping rules locally.
 - Keep check state, substantive label, and runtime qualifier independent.
 - Make provider failure a visible partial-result condition without erasing the
   deterministic graph.
+- Keep recommendation kinds closed and label-compatible. Accepted suggestions
+  remain `authority=none`, manual-only actions with benefit, risk, and
+  verification; model output never authorizes a write.
+- Project the sealed graph into a human-first report with per-Skill bounded
+  health dimensions and explicit unknown/not-implemented areas.
 
 ### 06.3 Longitudinal diagnostics
 
@@ -49,6 +71,8 @@ user's Skill set.
 - Qualify each provider/model/adapter/prompt contract separately.
 - Publish accuracy or release claims only after sample sufficiency and all
   absolute gates are satisfied.
+- Detect official-model documentation drift automatically, but promote a new
+  default only through reviewed profile changes and fresh qualification.
 
 ### 06.5 Safe repository integration
 
@@ -66,3 +90,7 @@ result graph, all applicable semantic/privacy scenarios execute, provider
 qualification is attributable, local baselines are reproducible, and the
 Stage 04 measurement protocol—not implementation confidence—supports the
 claimed quality level.
+
+The first two conditions now have local developmental coverage, including all
+18 S-SEM contracts. Qualification, longitudinal baselines, and measurement
+remain open, so Stage 06 is not complete.

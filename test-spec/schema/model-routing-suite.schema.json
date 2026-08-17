@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-doctor.local/schema/model-routing-suite-v0.1.json",
+  "title": "Agent Doctor model-routing contract suite",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "suite_id",
+    "suite_version",
+    "status",
+    "profile_id",
+    "cases"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "agent-doctor-model-routing-test/0.1"
+    },
+    "suite_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "suite_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "enum": ["draft", "reviewed", "disputed", "retired"]
+    },
+    "profile_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/case"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "case": {
+      "type": "object",
+      "required": ["id", "title", "as_of", "request", "expected", "prohibited_outcomes"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^MR-[0-9]{3}$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "as_of": {
+          "type": "string",
+          "format": "date"
+        },
+        "request": {
+          "$ref": "#/$defs/request"
+        },
+        "expected": {
+          "type": "object",
+          "minLength": 1
+        },
+        "prohibited_outcomes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "request": {
+      "type": "object",
+      "required": ["capability"],
+      "properties": {
+        "capability": {
+          "type": "string",
+          "minLength": 1
+        },
+        "strategy": {
+          "enum": ["auto", "pinned"]
+        },
+        "requested_model": {
+          "type": ["string", "null"]
+        },
+        "reasoning_effort": {
+          "type": ["string", "null"]
+        },
+        "available_models": {
+          "type": ["array", "null"],
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "require_qualified": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

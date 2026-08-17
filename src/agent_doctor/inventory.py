@@ -117,35 +117,62 @@ def _discover_instruction_level(
     if not present:
         return []
     selected: Path | None = None
+    nonempty: dict[Path, bool | None] = {}
     for path in (override, base):
+        if path not in present:
+            continue
         try:
-            if path.is_file() and path.stat().st_size > 0:
+            is_nonempty = path.is_file() and path.stat().st_size > 0
+            nonempty[path] = is_nonempty
+            if is_nonempty:
                 selected = path
                 break
         except OSError:
             # The candidate is still retained below.  The bounded reader owns
             # the check lifecycle and will record an honest read error.
+            nonempty[path] = None
             selected = path
             break
+    for path in present:
+        if path in nonempty:
+            continue
+        try:
+            nonempty[path] = path.is_file() and path.stat().st_size > 0
+        except OSError:
+            nonempty[path] = None
     candidates: list[SourceCandidate] = []
     for path in present:
         chosen = path == selected
+        if chosen:
+            status = SourceStatus.DISCOVERED.value
+            reason = (
+                "selected by global override/base rule"
+                if global_level
+                else "selected in project instruction chain"
+            )
+            applicability = "applicable"
+        elif selected is None:
+            status = SourceStatus.IGNORED.value
+            reason = "empty instruction file is retained in inventory but is not selected"
+            applicability = "inapplicable"
+        else:
+            status = SourceStatus.SHADOWED.value
+            reason = (
+                "empty instruction file yielded to another selected instruction at this level"
+                if nonempty.get(path) is False
+                else "another non-empty instruction file was selected at this level"
+            )
+            applicability = "inapplicable"
         candidates.append(
             _candidate(
                 scope,
                 path,
                 SourceType.OVERRIDE.value if path.name.endswith("override.md") else SourceType.INSTRUCTION.value,
-                status=SourceStatus.DISCOVERED.value if chosen else SourceStatus.SHADOWED.value,
-                reason=(
-                    "selected by global override/base rule"
-                    if chosen and global_level
-                    else "selected in project instruction chain"
-                    if chosen
-                    else "another non-empty instruction file was selected at this level"
-                ),
+                status=status,
+                reason=reason,
                 allowed_root=allowed_root,
                 semantic_disclosure="withheld",
-                effective_scope={"state": "applicable", "directory": scope.display_location(directory)},
+                effective_scope={"state": applicability, "directory": scope.display_location(directory)},
             )
         )
     return candidates
@@ -162,6 +189,7 @@ def _discover_skill_root(
     max_depth: int = 1,
     max_skills: int = 512,
     max_entries: int = 4_096,
+    shared_reference_root: Path | None = None,
 ) -> list[SourceCandidate]:
     if not root.exists() or not root.is_dir():
         return []
@@ -232,7 +260,11 @@ def _discover_skill_root(
                 return
             skill_file = entry / "SKILL.md"
             resolved_entry = entry.resolve(strict=False)
-            skill_allowed_root = resolved_entry
+            skill_allowed_root = (
+                shared_reference_root.resolve(strict=False)
+                if shared_reference_root is not None
+                else resolved_entry
+            )
             relative_entry = entry.relative_to(root).as_posix()
             try:
                 raw_logical_location = scope.display_location(root) + "/" + relative_entry + "/SKILL.md"
@@ -555,6 +587,7 @@ def _discover_plugin_cache(scope: ResolvedScope, cache_root: Path) -> list[Sourc
                         effective_state="unknown",
                         provenance=plugin_provenance,
                         max_depth=3,
+                        shared_reference_root=version_root,
                     )
                 )
     return candidates

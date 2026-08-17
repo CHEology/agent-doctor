@@ -1,0 +1,63 @@
+name: OpenAI model profile watch
+
+on:
+  schedule:
+    - cron: "41 19 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: openai-model-profile-watch
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Official model documentation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install Agent Doctor
+        run: python -m pip install .
+
+      - name: Compare reviewed profile with official Markdown
+        id: model_profile
+        shell: bash
+        run: |
+          set +e
+          agent-doctor model check-official --output openai-model-profile-check.json
+          status=$?
+          set -e
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          if [ "$status" -eq 0 ]; then
+            echo "Official model sources match the reviewed profile." >> "$GITHUB_STEP_SUMMARY"
+          elif [ "$status" -eq 2 ]; then
+            echo "Official model sources changed. Review the artifact, qualify the candidate, and promote it by pull request." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "The official-source check could not complete; no model recommendation was changed." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Retain source-drift report
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: openai-model-profile-check
+          path: openai-model-profile-check.json
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Require a current reviewed profile
+        env:
+          MODEL_PROFILE_STATUS: ${{ steps.model_profile.outputs.status }}
+        run: test "$MODEL_PROFILE_STATUS" = 0

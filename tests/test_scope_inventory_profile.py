@@ -42,6 +42,35 @@ def test_scope_is_frozen_relative_and_manual_only(tmp_path: Path) -> None:
     assert scope.plan.semantic_disclosure_boundary["mode"] == "disabled"
 
 
+def test_empty_instruction_is_ignored_without_inventing_a_shadowing_source(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    home = tmp_path / "home"
+    codex_home = home / ".codex"
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    codex_home.mkdir(parents=True)
+    (codex_home / "AGENTS.md").write_text("", encoding="utf-8")
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("CODEX_HOME", str(codex_home))
+
+    profile = load_profile()
+    scope = plan_scope(ScopeOptions(workspace, include_user=True), profile)
+    candidate = next(
+        item
+        for item in discover(scope, profile)
+        if item.location == "user://.codex/AGENTS.md"
+    )
+
+    assert candidate.status == "ignored"
+    assert candidate.effective_scope == {
+        "state": "inapplicable",
+        "directory": "user://.codex",
+    }
+    assert "empty instruction file" in candidate.status_reason
+
+
 def test_outside_skill_symlink_is_inventoried_but_not_inspected(tmp_path: Path) -> None:
     profile = load_profile()
     skill_root = tmp_path / ".agents/skills"

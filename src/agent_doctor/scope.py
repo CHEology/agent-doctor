@@ -21,6 +21,7 @@ class ScopeOptions:
     include_system: bool = False
     project_trust: str = "unknown"
     semantic_mode: str = "disabled"
+    semantic_manifest_digest: str | None = None
 
 
 @dataclass(frozen=True)
@@ -70,11 +71,8 @@ def plan_scope(options: ScopeOptions, profile: dict) -> ResolvedScope:
         raise ScopeError("selected path must stay inside the workspace")
     if options.project_trust not in {"trusted", "untrusted", "unknown"}:
         raise ScopeError("project trust must be trusted, untrusted, or unknown")
-    if options.semantic_mode != "disabled":
-        raise ScopeError(
-            "the Stage 05 product slice keeps semantic analysis disabled; "
-            "scripted semantic behavior exists only inside the synthetic test runner"
-        )
+    if options.semantic_mode not in {"disabled", "enabled"}:
+        raise ScopeError("semantic mode must be disabled or enabled")
 
     project_root = _find_project_root(selected, workspace)
     codex_home = effective_codex_home().resolve(strict=False)
@@ -108,8 +106,13 @@ def plan_scope(options: ScopeOptions, profile: dict) -> ResolvedScope:
         exclusions.append({"subject": "admin/system files", "reason": "not selected; use --include-system"})
     semantic_boundary = {
         "mode": options.semantic_mode,
-        "eligible": [] if options.semantic_mode == "disabled" else ["fixture-declared minimized excerpts"],
-        "external_network": False,
+        "eligible": (
+            []
+            if options.semantic_mode == "disabled"
+            else ["explicitly selected minimized Skill claim excerpts"]
+        ),
+        "manifest_digest": options.semantic_manifest_digest,
+        "external_network": bool(options.semantic_manifest_digest),
     }
     plan = ScopePlan.create(
         workspace_identity="workspace://",

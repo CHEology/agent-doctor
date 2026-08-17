@@ -35,10 +35,10 @@ packaging. `setuptools` builds the package and `pytest` is the development test
 runner; neither is imported by the product runtime.
 
 “Offline-first” names this deterministic safety floor; it does not make the
-intended product purely script-based. Model reasoning remains an optional layer
-for semantic comparisons, with exact disclosure consent and local final
-adjudication. That production semantic bridge is proposed for Stage 06 and is
-not exposed by this CLI slice.
+intended product purely script-based. Model reasoning is an optional Stage 06
+extension for semantic comparisons, with exact disclosure consent and local
+final adjudication. The Stage 05 deterministic floor remains independently
+usable when that extension is disabled, unavailable, unconsented, or fails.
 
 The package publishes the `agent-doctor` console command through
 `pyproject.toml`. The product result schema is
@@ -106,13 +106,26 @@ selected environment match the documented snapshot.
 
 ## Semantic and repair boundaries
 
-Semantic analysis is optional in the approved architecture and is not exposed
-by this product CLI slice. The Stage 04 golden harness has a test-only local
-scripted adapter. It requires the exact synthetic fixture consent string,
-creates a provider/model/purpose/content/exclusion disclosure manifest,
-minimizes excerpts, excludes secrets and scripts, validates cited responses,
-keeps model-origin evidence `inferred`, disables cross-run caching, and leaves
-final adjudication local. It has no network adapter or credentials.
+Semantic analysis remains optional. The Stage 06 extension now exposes
+separate `semantic prepare`, `semantic invoke`, and `semantic finalize`
+commands. Preparation calls no model and produces an exact manifest containing
+the provider, model/effort, purpose, selected minimized claim handles,
+exclusions, retention/cache statement, contract versions, and digest. A new
+affirmative consent must name that digest. Secret-bearing sources and all
+script/executable bodies are excluded.
+
+Invocation uses the signed-in Codex Desktop account in an ephemeral empty
+working directory, ignores user/project rules, requests tool/web/app disabling,
+and rejects observed tool activity. It does not need an OpenAI API key.
+Responses must use the closed schema and cite disclosed handles. Accepted
+model statements remain `inferred`; state, independent labels, applicability
+qualifiers, severity, confidence, grouping, and sealing are decided locally.
+The adapter/model/prompt has not completed Stage 04 qualification, so this
+developmental path supports no accuracy, calibration, usefulness, or release
+claim.
+
+The Stage 04 golden harness retains its test-only scripted provider for
+deterministic contract regression. It performs no network request.
 
 Repair is proposal/manual-only. Findings may include bounded manual actions,
 all with `authority: none`. There is no apply or rollback command. The product
@@ -147,16 +160,29 @@ Current implementation coverage is:
 
 - G-001–G-020: all twenty reviewed golden cases execute from synthetic inputs,
   seal a result, validate output parity, and repeat canonically three times;
-- expanded catalog: 83 scenarios in the selected deterministic/output/privacy
-  slice execute; 49 remain explicitly unsupported (18 optional semantic
-  provider scenarios, 30 automatic-repair/rollback scenarios, and one
-  repair-concurrency capability scenario).
+- at the Stage 05 boundary, 83 deterministic/output/privacy scenarios
+  executed and 49 were explicitly unsupported. The later Stage 06 semantic
+  slice now executes S-SEM-001–S-SEM-018 too, bringing the current catalog to
+  101 executable scenarios; 31 repair mutation/concurrency scenarios remain
+  unsupported.
 
 The expanded catalog remains marked `draft` by Stage 04. These are normative
 contract regressions only. No holdout sampling, independent labeling,
 usefulness study, calibration run, performance qualification, or release gate
 measurement has occurred, so no PRD accuracy, usefulness, calibration, or
 release target is claimed.
+
+## Stage 06 routing preparation
+
+The repository now also contains a reviewed OpenAI model-capability profile,
+an offline `agent-doctor model resolve` command, an explicit official-source
+drift checker, and the retained model-routing contracts. These additions do not
+replace the offline floor; they also drive the consented Codex Desktop semantic
+exchange. Official recommendation, authenticated Codex availability, user
+choice, and Stage 04 qualification remain separate. A successful developmental
+run is not a provider qualification or an API-project availability claim.
+
+See [the Stage 06 detailed design](stage-06-semantic-and-model-routing-design.md).
 
 ## Development verification
 
@@ -166,17 +192,19 @@ pytest -q
 
 Tests cover canonicalization, schemas and invariants, parsing and byte/display
 spans, reference scope and symlinks, privacy, profile compatibility, frozen
-scope, full pipeline sealing, deterministic identities, renderers, CI failure
-semantics, the twenty goldens, the applicable expanded catalog, and CLI output.
+scope, semantic disclosure/consent/citation/authority boundaries, local
+semantic adjudication, full pipeline sealing, deterministic identities,
+renderers, CI failure semantics, the twenty goldens, the applicable expanded
+catalog, and CLI output.
 
 ## Repository orchestration and continuous review
 
 The repository now includes a project Skill at
 `.agents/skills/agent-doctor/SKILL.md`. It lets Codex run and explain the safe
-terminal projection, while explicitly refusing to reinterpret static evidence,
-read undisclosed personal Skill bodies as product evidence, or apply repairs.
-It is an orchestration/explanation layer, not the missing production semantic
-adapter.
+terminal projection and consented semantic sequence, while explicitly refusing
+to reinterpret static evidence, read undisclosed personal Skill bodies as
+product evidence, or apply repairs. It requires fresh digest-specific consent
+before every provider invocation.
 
 `make check` is the stable local gate. GitHub Actions repeats unit tests across
 supported Python versions, type checking, Stage 04 contract runs, a

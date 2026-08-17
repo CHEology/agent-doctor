@@ -13,6 +13,9 @@ and regression risks. Enforce these project invariants:
 - unknown/stale/incompatible rules abstain or safely refuse;
 - disclosure consent is exact and cannot become write authorization;
 - model output is inferred, cited, validated, and locally adjudicated;
+- official recommendation, account availability, user model policy, and
+  product qualification remain independent; a new model is not promoted by
+  version-number ordering or documentation drift alone;
 - execution failure and policy-threshold failure remain distinct;
 - Stage 04 expectations and measurement claims are not weakened;
 - automatic repair remains unavailable without the complete apply/rollback

@@ -120,6 +120,7 @@ jobs:
           python -m pip install --force-reinstall dist/*.whl
           agent-doctor --version
           agent-doctor scan . --project-trust trusted --format terminal
+          agent-doctor model resolve --capability codex.advisory_review --as-of 2026-08-17
 
       - name: Retain distributions
         uses: actions/upload-artifact@v6

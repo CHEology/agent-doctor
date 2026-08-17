@@ -31,6 +31,7 @@ spec:
 	$(AGENT_DOCTOR) spec validate test-spec/scenarios/stage-04-catalog-v0.1.json
 	$(AGENT_DOCTOR) spec run test-spec/fixtures/golden-v0.1.json --repetitions 3 --summary
 	$(AGENT_DOCTOR) spec run test-spec/scenarios/stage-04-catalog-v0.1.json --summary
+	$(AGENT_DOCTOR) model spec --summary
 
 audit:
 	$(AGENT_DOCTOR) scan . --project-trust trusted --format ci --fail-on high --output $(REPORT_DIR)/agent-doctor-ci.json

@@ -8,22 +8,34 @@ Agent Doctor is deliberately hybrid:
    source, parse and normalize, resolve references/configuration/precedence,
    retain evidence lineage, and seal one reproducible graph without network
    access.
-2. **Model-assisted review.** Use a model for open-ended comparisons that are
-   difficult to encode as rules: trigger overlap, behavioral equivalence,
-   hidden exceptions, and ambiguous boundaries.
-3. **Local adjudication.** Validate citations and provider output, retain model
-   evidence as `inferred`, test counterexamples, and decide state, label,
-   severity, grouping, and next action locally.
+2. **Bounded model panel.** Use an isolated analyst for open-ended comparisons
+   that are difficult to encode as rules, then use a fresh-context critic with
+   reversed source order to search for counterexamples and missing evidence.
+3. **Local adjudication.** Validate both identities and citations, retain model
+   evidence as `inferred`, require corroboration for promotion, and decide
+   state, label, severity, grouping, and compatible manual next action locally.
 
 “Offline-first” describes layer 1 and the failure mode of the whole system. It
 does not ban layer 2. If the model is disabled, unavailable, unconsented, or
 unqualified, deterministic results remain usable and semantic checks remain
 explicitly `not_run` or `insufficient_evidence`.
 
-The Stage 05 CLI implements layer 1 and the result projections. The
-repository-level Skill lets Codex orchestrate the CLI and explain its safe
-terminal summary. It does not yet implement the consented semantic provider
-and local adjudication bridge in layers 2–3.
+The Stage 05 CLI implements layer 1 and the result projections. The Stage 06
+extension implements layers 2–3 as a three-step local exchange: prepare an
+exact minimized manifest without a model call, invoke an ephemeral signed-in
+Codex Desktop analyst and independent critic only after digest-specific
+consent, then validate and adjudicate the cited panel locally. The same
+repository Skill orchestrates both paths. Default terminal/Markdown output is
+human-first, while JSON/CI and the explicit debug projection preserve the
+complete technical graph and stable IDs.
+
+Stage 06 preparation adds a reviewed, capability-based OpenAI model profile and
+an offline resolver. Official recommendation, account availability, user
+choice, and product qualification are separate inputs. The resolver does not
+call a provider, and a newly documented model is a candidate until source
+review and the applicable qualification gates promote it. The Codex Desktop
+adapter uses authenticated Codex catalogue availability, which is distinct
+from OpenAI API-project availability and does not require an API key.
 
 ## Repository workflow
 
@@ -50,6 +62,7 @@ schedule, and manual dispatch. It performs:
 - mypy and bytecode compilation;
 - schema validation plus G-001–G-020 repeated execution;
 - the expanded Stage 04 catalog with unsupported cases retained in the report;
+- the offline reviewed model-routing contract suite;
 - a trusted, repository-only Agent Doctor CI scan;
 - source/wheel build and clean wheel-install smoke test.
 
@@ -82,8 +95,10 @@ a repository setting and is therefore not silently changed by source code.
 1. create an Actions secret named `OPENAI_API_KEY`;
 2. create a repository variable named `CODEX_REVIEW_ENABLED` with value
    `true`;
-3. review `.github/codex/prompts/review.md` and the workflow's disclosure scope;
-4. open a same-repository pull request from a trusted writer.
+3. optionally set `CODEX_REVIEW_MODEL` and `CODEX_REVIEW_EFFORT`; when absent,
+   the workflow uses the reviewed `gpt-5.6-sol` / `max` defaults;
+4. review `.github/codex/prompts/review.md` and the workflow's disclosure scope;
+5. open a same-repository pull request from a trusted writer.
 
 The workflow checks out the PR merge ref, runs `openai/codex-action@v1` with a
 read-only sandbox and dropped sudo, and posts an advisory review comment in a
@@ -93,6 +108,19 @@ developer's user home.
 
 This workflow reviews repository changes. It is not the Agent Doctor semantic
 diagnostic adapter and does not create product findings.
+
+### Official model profile watch
+
+`.github/workflows/model-profile-watch.yml` runs weekly and by manual dispatch.
+It fetches only the allowlisted public OpenAI Markdown sources recorded in the
+reviewed profile, compares constrained fields and source digests, and retains a
+drift report. It has read-only repository permissions and no API key.
+
+A detected change fails that scheduled check so a maintainer can review the
+artifact. It does not edit the profile, change the Codex review model, or
+qualify a product semantic provider. Promotion requires a pull request and,
+when product findings are affected, a new Stage 04 qualification run. See the
+[detailed routing design](stage-06-semantic-and-model-routing-design.md).
 
 ## Longitudinal personal diagnosis
 

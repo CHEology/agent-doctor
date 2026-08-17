@@ -7,6 +7,7 @@ from collections import Counter
 from typing import Any
 
 from .canonical import canonical_json
+from .human import build_human_summary
 
 
 STATIC_LIMITATION = "Static evidence does not assert runtime selection or causality."
@@ -26,7 +27,7 @@ def _qualifiers(case: dict[str, Any]) -> list[str]:
     return [item["kind"] for item in case.get("validation_qualifiers", [])]
 
 
-def render_terminal(graph: dict[str, Any]) -> str:
+def render_debug_terminal(graph: dict[str, Any]) -> str:
     run = graph["run"]
     cases = graph.get("interaction_cases", [])
     source_counts = Counter(item["status"] for item in graph.get("inventory", {}).get("sources", []))
@@ -72,11 +73,180 @@ def render_terminal(graph: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def render_terminal(graph: dict[str, Any]) -> str:
+    """Render an answer-first terminal report with durable IDs as references."""
+
+    run = graph["run"]
+    summary = build_human_summary(graph)
+    inventory_count = len(graph.get("inventory", {}).get("sources", []))
+    skill_count = len(summary["health_cards"])
+    lines = [
+        f"Agent Doctor {run['product_version']}",
+        summary["verdict"],
+        (
+            f"Scope: {', '.join(graph['scope']['selected_regions'])} | "
+            f"inventoried {inventory_count} source(s), including {skill_count} Skill(s)"
+        ),
+        summary["limitation"],
+        "",
+        "What needs attention",
+    ]
+    if not summary["issues"]:
+        lines.append("  Nothing was classified as a finding or candidate in completed checks.")
+    for index, issue in enumerate(summary["issues"], start=1):
+        impact = issue["impact"] or "not assigned"
+        confidence = issue["confidence"] or "not assigned"
+        lines.extend(
+            [
+                f"  {index}. [{issue['state']}] {issue['question']}",
+                f"     Impact: {impact}; confidence: {confidence}",
+                "     Where: " + (", ".join(issue["locations"]) or "no source location recorded"),
+                f"     Why: {issue['why']}",
+            ]
+        )
+        recommendations = issue["recommendations"] or [
+            "Inspect the cited evidence manually; no automatic repair is authorized."
+        ]
+        for recommendation in recommendations[:3]:
+            lines.append(f"     Next: {recommendation}")
+        if len(recommendations) > 3:
+            lines.append(
+                f"     Next: … {len(recommendations) - 3} additional bounded action(s) "
+                "are retained in the sealed result."
+            )
+        lines.append(f"     Reference: {issue['case_id']}")
+
+    lines.extend(["", "Skill health (bounded to completed checks)"])
+    if not summary["health_cards"]:
+        lines.append("  No discovered Skill body was available for a health card.")
+    else:
+        lines.append(
+            "  Summary: "
+            + ", ".join(
+                f"{key}={value}"
+                for key, value in summary["health_card_counts"].items()
+            )
+        )
+    priority_cards = [
+        card
+        for card in summary["health_cards"]
+        if card["status"] in {"attention", "review_candidate", "error"}
+    ]
+    gap_cards = [
+        card for card in summary["health_cards"] if card["status"] == "unknown"
+    ][:6]
+    display_cards = priority_cards + gap_cards
+    if not display_cards:
+        display_cards = summary["health_cards"][:6]
+    for card in display_cards:
+        lines.append(f"  [{card['status']}] {card['location']}")
+        lines.append(f"     {card['explanation']}")
+        if card["labels"]:
+            lines.append("     Relationships: " + ", ".join(card["labels"]))
+        lines.append(
+            "     Semantic: "
+            + card["semantic_evaluation"]
+            + "; maintenance: "
+            + card["maintenance_evaluation"]
+        )
+        lines.append(
+            "     Coverage: "
+            + ", ".join(
+                f"{key.replace('_', ' ')}={value}"
+                for key, value in card["health_dimensions"].items()
+            )
+        )
+    omitted_cards = len(summary["health_cards"]) - len(display_cards)
+    if omitted_cards > 0:
+        lines.append(
+            f"  … {omitted_cards} additional Skill card(s) are summarized above; "
+            "use Markdown or JSON for the complete list."
+        )
+
+    lines.extend(["", "Still unknown or not completed"])
+    if not summary["unknowns"] and not summary["coverage_gaps"]:
+        lines.append("  No additional gap was recorded.")
+    for item in summary["unknowns"]:
+        lines.append(
+            f"  [{item['state']}] {item['question']} (reference {item['case_id']})"
+        )
+    known_unknown_ids = {item["check_ref"] for item in summary["unknowns"]}
+    for gap in summary["coverage_gaps"]:
+        if gap.get("check_ref") not in known_unknown_ids:
+            lines.append(
+                f"  [{gap.get('state')}] {gap.get('check_ref')}: "
+                f"{gap.get('reason', {}).get('code', 'unspecified')}"
+            )
+
+    lines.extend(["", "Technical reference"])
+    lines.append(
+        f"  result {graph['result_id']} | sealed={str(graph.get('sealed', False)).lower()} "
+        f"| outcome={run['outcome']} | scope={graph['scope']['scope_id']}"
+    )
+    for case in graph.get("interaction_cases", []):
+        lines.append(
+            f"  {case['case_id']} [{case['state']}] check={case['check_ref']} "
+            f"evidence_records={len(case.get('evidence_refs', []))}"
+        )
+    for group in graph.get("finding_groups", []):
+        lines.append(
+            f"  {group['group_id']} members=" + ",".join(group["member_case_refs"])
+        )
+    return "\n".join(lines) + "\n"
+
+
 def render_markdown(graph: dict[str, Any]) -> str:
     run = graph["run"]
+    summary = build_human_summary(graph)
     lines = [
         "# Agent Doctor report",
         "",
+        f"**Verdict:** {summary['verdict']}",
+        "",
+        summary["limitation"],
+        "",
+        "## What needs attention",
+        "",
+    ]
+    if not summary["issues"]:
+        lines.append("No finding or candidate was emitted by the completed checks.")
+    for issue in summary["issues"]:
+        locations = ", ".join(f"`{item}`" for item in issue["locations"]) or "none recorded"
+        labels = ", ".join(f"`{item}`" for item in issue["labels"]) or "none"
+        lines.extend(
+            [
+                f"### {issue['question']}",
+                "",
+                f"- State/impact/confidence: `{issue['state']}` / `{issue['impact']}` / `{issue['confidence']}`",
+                f"- Relationship labels: {labels}",
+                f"- Locations: {locations}",
+                f"- Why: {issue['why']}",
+                f"- Durable case: `{issue['case_id']}`",
+            ]
+        )
+        for recommendation in issue["recommendations"]:
+            lines.append(f"- Manual next step: {recommendation}")
+        lines.append("")
+
+    lines.extend(["## Skill health", ""])
+    if not summary["health_cards"]:
+        lines.append("No discovered Skill body was available for a health card.")
+    for card in summary["health_cards"]:
+        dimension_text = ", ".join(
+            f"{key.replace('_', ' ')}=`{value}`"
+            for key, value in card["health_dimensions"].items()
+        )
+        lines.extend(
+            [
+                f"- **`{card['location']}` — `{card['status']}`.** {card['explanation']} "
+                f"Coverage: {dimension_text}.",
+            ]
+        )
+    lines.extend(
+        [
+            "",
+            "## Technical detail",
+            "",
         f"Result `{graph['result_id']}` is **{run['outcome']}** and `sealed={str(graph.get('sealed', False)).lower()}`.",
         "",
         STATIC_LIMITATION,
@@ -94,7 +264,8 @@ def render_markdown(graph: dict[str, Any]) -> str:
         "",
         "| Family | Attempted | Completed | Not run | Error | Abstained |",
         "| --- | ---: | ---: | ---: | ---: | ---: |",
-    ]
+        ]
+    )
     for row in graph.get("coverage", {}).get("by_family", []):
         lines.append(
             f"| {row['family']} | {row['attempted']} | {row['completed']} | {row['not_run']} | {row['error']} | {row['abstained']} |"

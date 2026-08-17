@@ -14,7 +14,7 @@ from .privacy import is_within, redact_secrets
 
 
 MARKDOWN_LINK = re.compile(r"\[[^\]]+\]\(([^)]+)\)")
-BACKTICK_PATH = re.compile(r"`([^`]*(?:references|scripts|assets)/[^`]+)`", re.IGNORECASE)
+CODE_SPAN = re.compile(r"`([^`\n]+)`")
 REFERENCE_KEY = re.compile(r"(?im)^\s*(?:reference|resource)\s*:\s*([^\s#]+)")
 REQUIRED_SCHEMA = re.compile(r"(?im)^\s*required_policy_schema\s*:\s*['\"]?([A-Za-z0-9_.-]+)")
 TARGET_SCHEMA = re.compile(r"(?im)^\s*schema\s*:\s*['\"]?([A-Za-z0-9_.-]+)")
@@ -39,14 +39,103 @@ class ReferenceResolution:
     evidence_basis: str
 
 
+def _local_reference_token(raw: str) -> str | None:
+    """Return one local path token, never a command, placeholder, or URI.
+
+    Reference validity is a high-precision check.  A code span containing a
+    shell command (or prose which happens to mention ``scripts/``) is not a
+    declaration of that entire span as one path.
+    """
+
+    token = raw.strip().strip('"\'')
+    if token.startswith("<") and token.endswith(">"):
+        token = token[1:-1].strip()
+    if not token or any(character.isspace() for character in token):
+        return None
+    if any(character in token for character in ("<", ">", "[", "]", "|", ";", "&")):
+        return None
+    if token in {".", "..", "..."} or "..." in token:
+        return None
+    if re.match(r"^[A-Za-z][A-Za-z0-9+.-]*://", token):
+        return None
+    # Markdown targets may carry a fragment; the fragment is not part of the
+    # filesystem identity.  Query-bearing targets are not a supported local
+    # file reference and are ignored rather than guessed.
+    if "?" in token:
+        return None
+    token = token.split("#", 1)[0]
+    if not token:
+        return None
+    if token.startswith("$") and "/" not in token:
+        # Skill/tool mentions and spreadsheet formula fragments are not
+        # environment-variable-backed file references.
+        return None
+    if token.startswith(".") and not token.startswith(("./", "../")) and "/" not in token:
+        # Extension examples and CSS selectors do not identify a local target.
+        return None
+    path_shape = (
+        token.startswith(("./", "../", "~/", "/"))
+        or "/" in token
+        or bool(re.search(r"^[^./][^/]*\.[A-Za-z0-9]{1,12}$", token))
+    )
+    return token if path_shape else None
+
+
+def _code_span_has_reference_context(prefix: str) -> bool:
+    """Recognize a narrow load/navigation phrase immediately before a span."""
+
+    english = re.search(
+        r"\b(?:read|load|open|consult|follow|inspect|see|reference)"
+        r"(?:\s+(?:the|this|that|following|required|relevant|applicable|primary|supporting|additional|"
+        r"instructions?|file|resource|reference|here|at))*[\s:,-]*$",
+        prefix,
+        re.IGNORECASE,
+    )
+    chinese = re.search(
+        r"(?:读取|阅读|打开|参阅|遵循|查看|检查)(?:该|此|以下|相关|完整|主要|支持性|文件|资源|说明)*[：:\s]*$",
+        prefix,
+    )
+    return bool(english or chinese)
+
+
 def extract_references(source_ref: str, content: str) -> tuple[ReferenceDeclaration, ...]:
     declarations: dict[tuple[str, int], ReferenceDeclaration] = {}
+    fence: str | None = None
     for line_number, line in enumerate(content.splitlines(), start=1):
+        stripped = line.lstrip()
+        marker = stripped[:3]
+        if marker in {"```", "~~~"}:
+            fence = None if fence == marker else marker if fence is None else fence
+            continue
+        if fence is not None:
+            continue
         required = bool(re.search(r"\b(read|required|must|before|reference)\b", line, re.IGNORECASE))
-        for pattern in (MARKDOWN_LINK, BACKTICK_PATH, REFERENCE_KEY):
+        for pattern in (MARKDOWN_LINK, CODE_SPAN, REFERENCE_KEY):
             for match in pattern.finditer(line):
-                raw = match.group(1).strip().strip('"\'')
-                if raw.startswith(("http://", "https://", "mailto:", "#")):
+                # A Markdown link or an explicit reference/resource key
+                # declares a target by syntax.  A bare code span needs an
+                # action/reference cue *before* it; otherwise ordinary prose
+                # such as "the `scripts/` directory is for local use" becomes
+                # a false declaration.
+                if pattern is CODE_SPAN:
+                    if not _code_span_has_reference_context(line[: match.start()]):
+                        continue
+                    candidate_token = match.group(1).strip().strip('"\'')
+                    # Bare names in prose may be resolved in a task-dependent
+                    # runtime directory. Without explicit reference syntax,
+                    # static analysis cannot anchor them to this source.
+                    if "/" not in candidate_token and not candidate_token.startswith(("./", "../", "~/")):
+                        continue
+                    if not candidate_token.startswith(
+                        ("./", "../", "references/", "resources/")
+                    ):
+                        # Unqualified task-output paths such as docs/, private/,
+                        # tmp/, and assets/source are commonly relative to a
+                        # future target workspace rather than this declaring
+                        # Skill. Their base is semantically determined.
+                        continue
+                raw = _local_reference_token(match.group(1))
+                if raw is None:
                     continue
                 declarations[(raw, line_number)] = ReferenceDeclaration(raw, line_number, required, source_ref)
     return tuple(declarations[key] for key in sorted(declarations, key=lambda item: (item[1], item[0])))
@@ -149,8 +238,18 @@ def resolve_reference(
         exists = lexical_absolute.exists()
         if not exists:
             return ReferenceResolution(declaration, "missing", normalized, lexical_absolute, "target does not exist", False, "filesystem existence metadata")
+        if lexical_absolute.is_dir():
+            return ReferenceResolution(
+                declaration,
+                "valid_directory",
+                normalized,
+                lexical_absolute,
+                "supported relative reference resolves to an in-scope directory",
+                False,
+                "profile resolver plus filesystem metadata",
+            )
         if not lexical_absolute.is_file():
-            return ReferenceResolution(declaration, "unsupported_type", normalized, lexical_absolute, "target is not a regular file", False, "filesystem type metadata")
+            return ReferenceResolution(declaration, "unsupported_type", normalized, lexical_absolute, "target is neither a regular file nor a directory", False, "filesystem type metadata")
         if case_sensitive:
             parent_names = {item.name for item in lexical_absolute.parent.iterdir()}
             if lexical_absolute.name not in parent_names:
