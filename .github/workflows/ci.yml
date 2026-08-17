@@ -85,7 +85,7 @@ jobs:
 
       - name: Retain sealed CI envelope
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: agent-doctor-ci-result
           path: build/reports/agent-doctor-ci.json
@@ -123,7 +123,7 @@ jobs:
           agent-doctor model resolve --capability codex.advisory_review --as-of 2026-08-17
 
       - name: Retain distributions
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: agent-doctor-distributions
           path: dist/

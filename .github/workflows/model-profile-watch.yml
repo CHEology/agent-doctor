@@ -50,7 +50,7 @@ jobs:
 
       - name: Retain source-drift report
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: openai-model-profile-check
           path: openai-model-profile-check.json
