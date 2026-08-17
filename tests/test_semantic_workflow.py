@@ -815,6 +815,67 @@ def test_corroborated_response_is_locally_adjudicated_and_manual_only(tmp_path: 
     ] == "checked_with_candidates"
 
 
+def test_bounded_question_omission_is_a_sealed_high_confidence_abstention(
+    tmp_path: Path,
+) -> None:
+    workspace, locations = _workspace(tmp_path)
+    extra_locations: list[str] = []
+    for name in ("gamma", "delta", "epsilon", "zeta"):
+        skill = workspace / f".agents/skills/{name}/SKILL.md"
+        skill.parent.mkdir(parents=True)
+        skill.write_text(
+            f"""---
+name: {name}
+description: Use for reviewing changes and deciding whether to edit files.
+---
+# {name.title()}
+Always review the requested change before editing a file.
+""",
+            encoding="utf-8",
+        )
+        extra_locations.append(f"workspace://.agents/skills/{name}/SKILL.md")
+    initial = analyze(
+        AnalysisRequest(
+            workspace=workspace,
+            project_trust="trusted",
+            semantic_mode="enabled",
+        )
+    ).graph
+    package = build_semantic_package(
+        initial,
+        source_selectors=locations + tuple(extra_locations),
+        selection=_selection(),
+        purpose="Exercise a naturally bounded semantic panel.",
+    )
+    manifest = package["manifest"]
+    coverage = manifest["semantic_panel"]["coverage"]
+    assert coverage["complete"] is False
+    assert coverage["omitted_question_count"] > 0
+    _, _, _, response = _panel_response(manifest)
+    graph = analyze(
+        AnalysisRequest(
+            workspace=workspace,
+            project_trust="trusted",
+            semantic_mode="enabled",
+            semantic_manifest=manifest,
+            semantic_invocation=_invocation(manifest, response),
+            semantic_response=response,
+            semantic_consent_digest=manifest["manifest_digest"],
+        )
+    ).graph
+    coverage_case = next(
+        item
+        for item in graph["interaction_cases"]
+        if item["dimension_ref"] == "semantic_coverage"
+        and item["question"].startswith("Did the bounded semantic panel cover")
+    )
+    assert graph["sealed"] is True
+    assert coverage_case["state"] == "insufficient_evidence"
+    assert coverage_case["confidence"] == "high"
+    assert coverage_case["severity"] is None
+    assert coverage_case["assessments"] == []
+
+
 def test_judge_challenge_abstains_instead_of_forcing_a_finding(tmp_path: Path) -> None:
     workspace, _, package = _package(tmp_path)
     manifest = package["manifest"]

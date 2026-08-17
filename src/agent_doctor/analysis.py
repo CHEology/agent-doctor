@@ -1628,6 +1628,7 @@ def _semantic_coverage(state: _PipelineState, request: AnalysisRequest) -> None:
             },
             source_refs=selected_refs,
             dimension="semantic_coverage",
+            confidence="high",
             evidence_refs=(mode_evidence, response_evidence),
             counterexample={
                 "considered": "Unasked pair/dimension questions may contain a material relationship.",
