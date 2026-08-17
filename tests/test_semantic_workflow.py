@@ -314,6 +314,20 @@ def test_stale_prompt_contract_is_rejected_even_with_a_recomputed_digest(
     )
 
 
+def test_stale_adjudication_contract_is_rejected_with_recomputed_digest(
+    tmp_path: Path,
+) -> None:
+    _, _, package = _package(tmp_path)
+    manifest = json.loads(json.dumps(package["manifest"]))
+    manifest["semantic_contract_version"] = "agent-doctor-semantic/0.6"
+    manifest.pop("manifest_digest")
+    manifest["manifest_digest"] = digest(manifest)
+    assert (
+        "unsupported semantic adjudication contract"
+        in validate_manifest_digest(manifest)
+    )
+
+
 def test_semantic_auto_scope_honors_exact_exclusion(tmp_path: Path) -> None:
     workspace, locations = _workspace(tmp_path)
     third = workspace / ".agents/skills/gamma/SKILL.md"
@@ -863,3 +877,39 @@ def test_incompatible_model_recommendation_is_not_promoted(tmp_path: Path) -> No
         for item in selected_actions
     )
     assert all(item["authority"] == "none" for item in selected_actions)
+
+
+def test_absent_recommendation_selection_is_discarded_without_erasing_relations(
+    tmp_path: Path,
+) -> None:
+    workspace, _, package = _package(tmp_path)
+    manifest = package["manifest"]
+    _, _, _, response = _panel_response(manifest)
+    judgment = next(
+        item
+        for item in response["judge"]["judgments"]
+        if item["selected_label"] == "no_material_relation"
+    )
+    judgment["recommendation_decision"] = {
+        "selected_from": "analyst_a",
+        "disposition": "accepted",
+    }
+    assert validate_provider_response(response, manifest) == []
+    graph = analyze(
+        AnalysisRequest(
+            workspace=workspace,
+            project_trust="trusted",
+            semantic_mode="enabled",
+            semantic_manifest=manifest,
+            semantic_invocation=_invocation(manifest, response),
+            semantic_response=response,
+            semantic_consent_digest=manifest["manifest_digest"],
+        )
+    ).graph
+    check = next(
+        item
+        for item in graph["checks"]
+        if item["family"] == "semantic"
+        and item["reason"].get("manual_recommendation_discarded") is True
+    )
+    assert check["state"] != "error"

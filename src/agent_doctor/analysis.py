@@ -1843,6 +1843,10 @@ def _semantic_coverage(state: _PipelineState, request: AnalysisRequest) -> None:
             and recommendation_answer["recommendation"]["kind"] != "no_action"
         ):
             accepted_recommendations.append(recommendation_answer["recommendation"])
+        recommendation_discarded = (
+            recommendation_role in {"analyst_a", "analyst_b"}
+            and not accepted_recommendations
+        )
         if accepted_recommendations:
             recommendation = accepted_recommendations[0]
             action_refs = (
@@ -1918,6 +1922,7 @@ def _semantic_coverage(state: _PipelineState, request: AnalysisRequest) -> None:
                 "counterexample_open": has_open_counterexample,
                 "missing_evidence": missing,
                 "manual_recommendation_accepted": bool(accepted_recommendations),
+                "manual_recommendation_discarded": recommendation_discarded,
                 "release_qualified": manifest["qualification"]["release_qualified"],
                 "runtime_causality_asserted": False,
                 "shared_applicability_region_established": applicable,

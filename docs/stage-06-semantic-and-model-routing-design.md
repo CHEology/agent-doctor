@@ -238,6 +238,8 @@ replace it.
    uncited panel output is unusable.
    Cross-field recommendation selection is encoded as a nested schema union so
    `selected_from=none` mechanically implies `disposition=not_applicable`.
+   A structurally valid but incompatible recommendation is discarded locally;
+   it cannot invalidate or promote the independently validated relationship.
 10. Record all three model statements only as immutable `inferred` evidence.
 11. Let the local adjudicator require corroborated analyst consensus, judge
     confirmation, closed counterexamples, no missing evidence, and a recommendation/label

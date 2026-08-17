@@ -620,6 +620,8 @@ def validate_manifest_digest(manifest: Mapping[str, Any]) -> list[str]:
         errors.append("unsupported semantic manifest schema")
     if manifest.get("prompt_contract_version") != PROMPT_CONTRACT_VERSION:
         errors.append("unsupported semantic prompt contract")
+    if manifest.get("semantic_contract_version") != SEMANTIC_CONTRACT_VERSION:
+        errors.append("unsupported semantic adjudication contract")
     expected = manifest.get("manifest_digest")
     unsigned = dict(manifest)
     unsigned.pop("manifest_digest", None)
@@ -1062,13 +1064,6 @@ def validate_judge_response(
         recommendation_source = recommendation_decision.get("selected_from")
         if recommendation_source not in {"analyst_a", "analyst_b", "none"}:
             errors.append(f"{path}.recommendation_decision.selected_from is invalid")
-        selected_answer = (
-            answer_a
-            if recommendation_source == "analyst_a"
-            else answer_b
-            if recommendation_source == "analyst_b"
-            else None
-        )
         recommendation_disposition = recommendation_decision.get("disposition")
         if recommendation_disposition not in {
             "accepted",
@@ -1077,14 +1072,6 @@ def validate_judge_response(
             "not_applicable",
         }:
             errors.append(f"{path}.recommendation_decision.disposition is invalid")
-        if (
-            selected_answer is None
-            or selected_answer.get("recommendation") is None
-            or selected_label != selected_answer.get("label")
-        ) and recommendation_disposition != "not_applicable":
-            errors.append(
-                f"{path}.recommendation_decision.disposition must be not_applicable"
-            )
         if recommendation_source == "none" and recommendation_disposition != "not_applicable":
             errors.append(
                 f"{path}.recommendation source none must be not_applicable"

@@ -139,7 +139,10 @@ for complete pair-specific coverage.
 The judge's recommendation selection and disposition are one schema-level
 discriminated decision: selecting `none` can only produce `not_applicable`.
 Local validation still checks that any named analyst actually supplied a
-compatible recommendation.
+compatible recommendation. A structurally valid but absent, label-mismatched,
+or otherwise incompatible recommendation is recorded as discarded and replaced
+by the generic bounded validation/evidence action; it does not erase otherwise
+valid semantic relationship evidence.
 
 Maintenance freshness is implemented only where evidence can decide it. An
 explicit consumer/target schema match passes; an explicit incompatibility is a
