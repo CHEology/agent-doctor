@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Review draft |
+| Contract status | Accepted for implementation |\n| Qualification status | Not completed |
 | Test specification version | 0.1 |
 | Date | 2026-08-17 |
 | Canonical language | English |
@@ -684,8 +684,18 @@ handoff:
 
 ### 15.1 Handoff condition
 
-Stage 04 is reviewable, not release evidence. Stage 05 may begin only after
-reviewers accept this contract or record amendments. Any Stage 05 implementation
-must report which scenarios are executable, which remain blocked by an
-unselected profile/operation/provider, and must not claim PRD targets until the
-independent measurement protocol has actually run.
+Stage 04 is accepted as the implementation and regression-test contract. This
+acceptance is not release evidence and does not claim that the independent
+qualification protocol or product targets have been completed. Any Stage 05
+implementation must report which scenarios are executable, which remain blocked
+by an unselected profile/operation/provider, and must not claim PRD targets
+until the independent measurement protocol has actually run.
+
+### 15.2 Approval record
+
+- **Decision:** Accepted for implementation and regression testing.
+- **Approved by:** Project owner.
+- **Approval date:** 2026-08-18.
+- **Qualification impact:** None. Independent qualification remains incomplete;
+  this approval does not establish accuracy, calibration, usefulness, or
+  release readiness.
